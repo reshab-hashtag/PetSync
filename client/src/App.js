@@ -23,6 +23,8 @@ import Settings        from './components/settings/Settings';
 
 import './App.css';
 import BusinessAdminRegistrationForm from './components/auth/BusinessAdminRegistrationForm.jsx';
+import StaffList from './components/staff/StaffList.jsx';
+import BusinessList from './components/business/BusinessList.jsx';
 
 function App() {
   return (
@@ -47,6 +49,8 @@ function App() {
               <Route path="billing"      element={<Billing                                   />} />
               <Route path="profile"      element={<Profile                                   />} />
               <Route path="settings"     element={<Settings                                  />} />
+               <Route path="businesses" element={<BusinessList                               />} />
+              <Route path="staff" element={<StaffList                                        />} />
               <Route path="/register-business-admin" element={<BusinessAdminRegistrationForm />} />
               {/* 404 under the dashboard layout */}
               <Route

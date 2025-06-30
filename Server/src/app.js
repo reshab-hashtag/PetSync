@@ -29,6 +29,7 @@ const authRoutes = require('./routes/auth');
 const businessRoutes = require('./routes/business');
 const appointmentRoutes = require('./routes/appointments');
 const petRoutes = require('./routes/pets');
+const staffRoutes = require('./routes/staff');
 // const invoiceRoutes = require('./routes/invoices');
 // const messageRoutes = require('./routes/messages');
 // const documentRoutes = require('./routes/documents');
@@ -108,6 +109,7 @@ app.use('/api/pets', petRoutes);
 // app.use('/api/messages', messageRoutes);
 // app.use('/api/documents', documentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/staff',staffRoutes);
 app.use('/api/admin', adminRoutes);
 // app.use('/api/payments', paymentRoutes);
 

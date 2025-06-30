@@ -1,12 +1,16 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
 import dashboardReducer from './slices/dashboardSlice';
+import staffReducer from './slices/staffSlice';
+import businessReducer from './slices/businessSlice';
 import uiReducer from './slices/uiSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     dashboard: dashboardReducer,
+    staff: staffReducer,
+    business: businessReducer,
     ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>

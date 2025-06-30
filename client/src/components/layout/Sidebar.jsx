@@ -6,14 +6,14 @@ import {
   HomeIcon,
   CalendarIcon,
   UserGroupIcon,
-  DocumentIcon,
   CogIcon,
-  ChartBarIcon,
-  CreditCardIcon,
-  ChatBubbleLeftRightIcon,
   XMarkIcon,
   BuildingOfficeIcon,
   PlusCircleIcon,
+  HeartIcon,
+  CalendarDaysIcon,
+  UsersIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
 
 const Sidebar = () => {
@@ -22,64 +22,63 @@ const Sidebar = () => {
   const { sidebarOpen } = useSelector((state) => state.ui);
   const { user } = useSelector((state) => state.auth);
 
-  const navigation = [
-    { 
-      name: 'Dashboard', 
-      href: '/dashboard', 
-      icon: HomeIcon, 
-      current: location.pathname === '/dashboard',
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-    },
-    { 
-      name: 'Appointments', 
-      href: '/appointments', 
-      icon: CalendarIcon, 
-      current: location.pathname.startsWith('/appointments'),
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-    },
-    { 
-      name: 'Clients', 
-      href: '/clients', 
-      icon: UserGroupIcon, 
-      current: location.pathname.startsWith('/clients'),
-      roles: ['super_admin', 'business_admin', 'staff'] // Only business users can see clients
-    },
-    { 
-      name: 'Pets', 
-      href: '/pets', 
-      icon: DocumentIcon, 
-      current: location.pathname.startsWith('/pets'),
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-    },
-    { 
-      name: 'Billing', 
-      href: '/billing', 
-      icon: CreditCardIcon, 
-      current: location.pathname.startsWith('/billing'),
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-    },
-    { 
-      name: 'Messages', 
-      href: '/messages', 
-      icon: ChatBubbleLeftRightIcon, 
-      current: location.pathname.startsWith('/messages'),
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-    },
-    { 
-      name: 'Analytics', 
-      href: '/analytics', 
-      icon: ChartBarIcon, 
-      current: location.pathname.startsWith('/analytics'),
-      roles: ['super_admin', 'business_admin'] // Only admins can see analytics
-    },
-    { 
-      name: 'Settings', 
-      href: '/settings', 
-      icon: CogIcon, 
-      current: location.pathname.startsWith('/settings'),
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-    },
-  ];
+ const navigation = [
+  {
+    name: 'Dashboard',
+    href: '/dashboard',
+    icon: HomeIcon,
+    roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
+  },
+  {
+    name: 'Appointments',
+    href: '/appointments',
+    icon: CalendarIcon,
+    roles: ['super_admin', 'business_admin', 'staff']
+  },
+  {
+    name: 'Clients',
+    href: '/clients',
+    icon: UserGroupIcon,
+    roles: ['super_admin', 'business_admin', 'staff']
+  },
+  {
+    name: 'Pets',
+    href: '/pets',
+    icon: HeartIcon,
+    roles: ['super_admin', 'business_admin', 'staff']
+  },
+  {
+    name: 'Calendar',
+    href: '/calendar',
+    icon: CalendarDaysIcon,
+    roles: ['super_admin', 'business_admin', 'staff']
+  },
+  {
+    name: 'Staff Management',
+    href: '/staff',
+    icon: UsersIcon,
+    roles: ['business_admin'] // Only business admins can access staff management
+  },
+  {
+    name: 'Business Management', // Add this new navigation item
+    href: '/businesses',
+    icon: BuildingOfficeIcon,
+    roles: ['business_admin'] // Only business admins can access business management
+  },
+  {
+    name: 'Billing',
+    href: '/billing',
+    icon: CurrencyDollarIcon,
+    roles: ['super_admin', 'business_admin']
+  },
+  {
+    name: 'Settings',
+    href: '/settings',
+    icon: CogIcon,
+    roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
+  }
+];
+
 
   // Super Admin specific navigation items
   const superAdminNavigation = [
