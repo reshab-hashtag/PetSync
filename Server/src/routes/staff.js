@@ -86,11 +86,18 @@ const validateStaffUpdate = [
 // STAFF MANAGEMENT ROUTES
 // ===================================
 
-// Get all staff members
-router.get('/', 
+// Get all staff members in a business
+router.get('/:businessId', 
   authenticate, 
   requireRole([ROLES.BUSINESS_ADMIN]), 
   staffController.getStaffMembers
+);
+
+// Get all staff members across all businesses
+router.get('/', 
+  authenticate, 
+  requireRole([ROLES.BUSINESS_ADMIN]), 
+  staffController.getAllStaffMembers
 );
 
 // Get staff statistics

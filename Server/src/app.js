@@ -109,7 +109,7 @@ app.use('/api/pets', petRoutes);
 // app.use('/api/messages', messageRoutes);
 // app.use('/api/documents', documentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/staff',staffRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/admin', adminRoutes);
 // app.use('/api/payments', paymentRoutes);
 

@@ -8,33 +8,45 @@ const { validationResult } = require('express-validator');
 
 class StaffController {
   // Get all staff members for the business
-    async getStaffMembers(req, res, next) {
+ async getStaffMembers(req, res, next) {
     try {
-      // 1. Parse query params
+      // 1) Parse pagination + filters
       const page   = parseInt(req.query.page,  10) || 1;
       const limit  = parseInt(req.query.limit, 10) || 20;
       const { search, status } = req.query;
       const skip   = (page - 1) * limit;
 
-      // 2. Extract the first businessId from the JWT payload
-      const businesses = req.user.userData?.business;
-      if (!Array.isArray(businesses) || businesses.length === 0) {
+      // 2) Get the businessId from the URL
+      const { businessId } = req.params;
+
+      // 3) Pull the list of businesses this admin owns
+      const owned = req.user.userData?.business;
+      if (!Array.isArray(owned) || owned.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'No business found on your account'
+          message: 'You don’t have any businesses yet.'
         });
       }
-      // business entries might be ObjectIds or full docs
-      const businessId = typeof businesses[0] === 'object'
-        ? businesses[0]._id
-        : businesses[0];
 
-      // 3. Load & populate staff
+      // 4) Normalize to an array of string IDs
+      const ownedIds = owned.map(b =>
+        typeof b === 'object' ? b._id.toString() : b.toString()
+      );
+
+      // 5) Ownership check
+      if (!ownedIds.includes(businessId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not the authentic business owner to access this business'
+        });
+      }
+
+      // 6) Load & populate staff for that business
       const business = await Business.findById(businessId)
         .select('staff')
         .populate({
           path: 'staff',
-          match: { role: ROLES.STAFF },               // only STAFF role
+          match: { role: ROLES.STAFF },
           select: 'profile.firstName profile.lastName profile.email role isActive'
         });
 
@@ -45,9 +57,9 @@ class StaffController {
         });
       }
 
-      let staffList = business.staff; // this is an array of User docs
+      let staffList = business.staff; // array of User docs
 
-      // 4. Optional text-search filter
+      // 7) Apply optional search filter
       if (search) {
         const re = new RegExp(search, 'i');
         staffList = staffList.filter(u =>
@@ -57,20 +69,21 @@ class StaffController {
         );
       }
 
-      // 5. Optional status filter
+      // 8) Apply optional status filter
       if (status === 'active' || status === 'inactive') {
         const wantActive = status === 'active';
         staffList = staffList.filter(u => u.isActive === wantActive);
       }
 
-      // 6. Pagination
+      // 9) Paginate in memory
       const total = staffList.length;
       const paged = staffList.slice(skip, skip + limit);
 
-      // 7. Respond
+      // 10) Respond
       return res.json({
         success: true,
         data: {
+          businessId,
           staff: paged,
           pagination: {
             current: page,
@@ -85,6 +98,102 @@ class StaffController {
       next(error);
     }
   }
+
+
+
+
+// Get all staff members across all businesses owned by the admin
+  async getAllStaffMembers(req, res, next) {
+    console.log("getAllStaffMembers called");
+    try {
+      // 1) Only BUSINESS_ADMIN may call this
+      if (req.user.role !== ROLES.BUSINESS_ADMIN) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Business admins only.'
+        });
+      }
+
+      // 2) Parse pagination + filters
+      const page   = parseInt(req.query.page,  10) || 1;
+      const limit  = parseInt(req.query.limit, 10) || 20;
+      const { search, status } = req.query;
+      const skip   = (page - 1) * limit;
+
+      // 3) Gather the IDs of all businesses this admin owns
+      const owned = req.user.userData?.business;
+      if (!Array.isArray(owned) || owned.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You don’t have any businesses yet.'
+        });
+      }
+      const ownedIds = owned.map(b => (
+        typeof b === 'object' ? b._id.toString() : b.toString()
+      ));
+
+      // 4) Load all those businesses with their staff arrays
+      const businesses = await Business.find({ _id: { $in: ownedIds } })
+        .select('staff')
+        .populate({
+          path: 'staff',
+          match: { role: ROLES.STAFF },
+          select: 'profile.firstName profile.lastName profile.email role isActive'
+        });
+
+      // 5) Flatten and dedupe staff
+      const allStaff = [];
+      const seen = new Set();
+      for (const biz of businesses) {
+        for (const user of biz.staff) {
+          const id = user._id.toString();
+          if (!seen.has(id)) {
+            seen.add(id);
+            allStaff.push(user);
+          }
+        }
+      }
+
+      // 6) Apply optional search filter
+      let filtered = allStaff;
+      if (search) {
+        const re = new RegExp(search, 'i');
+        filtered = filtered.filter(u =>
+          re.test(u.profile.firstName) ||
+          re.test(u.profile.lastName)  ||
+          re.test(u.profile.email)
+        );
+      }
+
+      // 7) Apply optional status filter
+      if (status === 'active' || status === 'inactive') {
+        const wantActive = status === 'active';
+        filtered = filtered.filter(u => u.isActive === wantActive);
+      }
+
+      // 8) Paginate in memory
+      const total = filtered.length;
+      const paged = filtered.slice(skip, skip + limit);
+
+      // 9) Respond
+      return res.json({
+        success: true,
+        data: {
+          staff: paged,
+          pagination: {
+            current: page,
+            pages:   Math.ceil(total / limit),
+            total,
+            limit
+          }
+        }
+      });
+    } catch (error) {
+      console.error('getAllStaffMembers error:', error);
+      next(error);
+    }
+  }
+
 
   // Get single staff member
   async getStaffMember(req, res, next) {

@@ -166,8 +166,9 @@ class BusinessController {
   async getBusiness(req, res, next) {
     try {
       const userId = req.user.userId;
-      const userRole = req.user.role;
+      const userRole = req.user.role;     
       const businessId = req.params.businessId || req.user.businessId;
+
 
       let business;
 
@@ -330,24 +331,41 @@ class BusinessController {
   }
 
   // Get all businesses (Business Admin only)
-  async getAllBusinesses(req, res, next) {
+ async getAllBusinesses(req, res, next) {
     try {
+      // 1) Only BUSINESS_ADMIN may call this
       if (req.user.role !== ROLES.BUSINESS_ADMIN) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied. business admin only.'
+          message: 'Access denied. Business admins only.'
         });
       }
 
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
+      // 2) Pagination params
+      const page  = parseInt(req.query.page,  10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const skip  = (page - 1) * limit;
 
-      // Build query filters
-      const query = {};
+      // 3) Determine which businesses this admin owns
+      const owned = req.user.userData?.business;
+      if (!Array.isArray(owned) || owned.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have no businesses assigned.'
+        });
+      }
+      // Normalize to array of string IDs
+      const ownedIds = owned.map(b =>
+        typeof b === 'object' ? b._id.toString() : b.toString()
+      );
+
+      // 4) Build query filters, including ownership
+      const query = {
+        _id: { $in: ownedIds }
+      };
       if (req.query.search) {
         query.$or = [
-          { 'profile.name': { $regex: req.query.search, $options: 'i' } },
+          { 'profile.name':  { $regex: req.query.search, $options: 'i' } },
           { 'profile.email': { $regex: req.query.search, $options: 'i' } }
         ];
       }
@@ -358,15 +376,18 @@ class BusinessController {
         query['subscription.plan'] = req.query.plan;
       }
 
-      const businesses = await Business.find(query)
-        .populate('staff', 'profile.firstName profile.lastName profile.email role')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
+      // 5) Fetch the paged results in parallel with the count
+      const [ businesses, total ] = await Promise.all([
+        Business.find(query)
+          .populate('staff', 'profile.firstName profile.lastName profile.email role')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit),
+        Business.countDocuments(query)
+      ]);
 
-      const total = await Business.countDocuments(query);
-
-      res.json({
+      // 6) Return with pagination info
+      return res.json({
         success: true,
         data: {
           businesses,
