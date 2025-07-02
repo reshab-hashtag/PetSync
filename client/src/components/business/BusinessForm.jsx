@@ -1,4 +1,4 @@
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   BuildingOfficeIcon,
   ClockIcon,
@@ -13,11 +13,15 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { useEffect } from 'react';
+import { fetchActiveCategories, selectActiveCategories, selectActiveCategoriesError, selectActiveCategoriesLoading } from '../../store/slices/businessCategorySlice';
 
 const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  // Redux state
+  const categories = useSelector(selectActiveCategories);
+  const categoriesLoading = useSelector(selectActiveCategoriesLoading);
   const [errors, setErrors] = useState({});
 
   const isEdit = !!business;
@@ -72,6 +76,8 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
     }
   });
 
+  console.log(categories)
+
   const [newService, setNewService] = useState({
     name: '',
     description: '',
@@ -79,6 +85,13 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
     price: { amount: 0, currency: 'INR' },
     category: 'general'
   });
+
+
+  // Load categories on component mount
+  useEffect(() => {
+    dispatch(fetchActiveCategories());
+  }, []);
+
 
   useEffect(() => {
     if (isEdit && business) {
@@ -599,19 +612,28 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
+              Business Category
             </label>
-            <select
-              value={newService.category}
-              onChange={(e) => setNewService(prev => ({ ...prev, category: e.target.value }))}
-              className="input-field"
-            >
-              <option value="general">General</option>
-              <option value="grooming">Grooming</option>
-              <option value="veterinary">Veterinary</option>
-              <option value="boarding">Boarding</option>
-              <option value="training">Training</option>
-            </select>
+            {categoriesLoading ? (
+              <div className="input-field flex items-center justify-center">
+                <LoadingSpinner size="sm" />
+                <span className="ml-2">Loading categories...</span>
+              </div>
+            ) : (
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                className="input-field"
+                required
+              >
+                <option value="">Select a category</option>
+                {categories.map(category => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

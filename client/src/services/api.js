@@ -67,4 +67,31 @@ export const petAPI = {
   getPet: (id) => api.get(`/pets/${id}`),
 };
 
+
+export const businessCategoryAPI = {
+  // Get all categories with pagination and filters (admin)
+  getAll: (params = {}) => api.get('/business-categories', { params }),
+  
+  // Get active categories for dropdowns (public)
+  getActive: () => api.get('/business-categories/active'),
+  
+  // Get single category by ID
+  getById: (id) => api.get(`/business-categories/${id}`),
+  
+  // Create new category (super admin only)
+  create: (categoryData) => api.post('/business-categories', categoryData),
+  
+  // Update existing category (super admin only)
+  update: (id, categoryData) => api.put(`/business-categories/${id}`, categoryData),
+  
+  // Delete category (super admin only)
+  delete: (id) => api.delete(`/business-categories/${id}`),
+  
+  // Get category statistics (super admin only)
+  getStats: () => api.get('/business-categories/admin/stats'),
+  
+  // Bulk update display order (super admin only)
+  updateDisplayOrder: (categories) => api.put('/business-categories/bulk/display-order', { categories }),
+};
+
 export default api;

@@ -7,19 +7,20 @@ const Appointment = require('../models/Appointment');
 
 class BusinessController {
   // Create new business (Business Admin only)
-  async createBusiness(req, res, next) {
+// Server/src/controllers/businessController.js (Fixed createBusiness method)
+async createBusiness(req, res, next) {
   try {
     const {
-          businessData = {}   
-          } = req.body;
+      businessData = {}   
+    } = req.body;
 
-      const {
+    const {
       profile,
-      services     = [],   
+      services = [],   
       schedule,
-      settings      = {},
-      subscription  = {}
-      } = businessData;
+      settings = {},
+      subscription = {}
+    } = businessData;
 
     const userId = req.user.userId;
     const userRole = req.user.role;
@@ -49,16 +50,35 @@ class BusinessController {
       });
     }
 
+    // Validate category if provided
+    if (!profile?.category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business category is required'
+      });
+    }
+
+    // Verify category exists
+    const BusinessCategory = require('../models/BusinessCategory');
+    const categoryExists = await BusinessCategory.findById(profile.category);
+    if (!categoryExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid business category'
+      });
+    }
+
     // Build business payload
     const businessPayload = {
       profile: {
         name: profile.name,
-        companyName: profile.companyName, // New company name field
+        companyName: profile.companyName,
         description: profile.description || '',
         logo: profile.logo || '',
         website: profile.website || '',
         email: profile.email.toLowerCase(),
         phone: profile.phone,
+        category: profile.category, // Add the category ID to the business payload
         address: {
           street: profile.address.street,
           city: profile.address.city,
@@ -141,18 +161,23 @@ class BusinessController {
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
         businessName: business.profile.name,
-        companyName: business.profile.companyName
+        companyName: business.profile.companyName,
+        categoryId: business.profile.category
       }
     });
+
+    // Populate category information in response
+    await business.populate('profile.category', 'name slug color icon description');
 
     // Prepare response
     const responseData = {
       business: {
         id: business._id,
         name: business.profile.name,
-        companyName: business.profile.companyName, // Include in response
+        companyName: business.profile.companyName,
         email: business.profile.email,
         phone: business.profile.phone,
+        category: business.profile.category, // Include populated category
         address: business.profile.address,
         services: business.services,
         settings: business.settings,
@@ -173,7 +198,6 @@ class BusinessController {
     next(error);
   }
 }
-
   // Get business details
    async getBusiness(req, res, next) {
     try {

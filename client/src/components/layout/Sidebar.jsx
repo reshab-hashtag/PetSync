@@ -14,6 +14,7 @@ import {
   CalendarDaysIcon,
   UsersIcon,
   CurrencyDollarIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline';
 
 const Sidebar = () => {
@@ -22,74 +23,83 @@ const Sidebar = () => {
   const { sidebarOpen } = useSelector((state) => state.ui);
   const { user } = useSelector((state) => state.auth);
 
- const navigation = [
-  {
-    name: 'Dashboard',
-    href: '/dashboard',
-    icon: HomeIcon,
-    roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-  },
-  {
-    name: 'Appointments',
-    href: '/appointments',
-    icon: CalendarIcon,
-    roles: ['super_admin', 'business_admin', 'staff']
-  },
-  {
-    name: 'Clients',
-    href: '/clients',
-    icon: UserGroupIcon,
-    roles: ['super_admin', 'business_admin', 'staff']
-  },
-  {
-    name: 'Pets',
-    href: '/pets',
-    icon: HeartIcon,
-    roles: ['super_admin', 'business_admin', 'staff']
-  },
-  {
-    name: 'Calendar',
-    href: '/calendar',
-    icon: CalendarDaysIcon,
-    roles: ['super_admin', 'business_admin', 'staff']
-  },
-  {
-    name: 'Staff Management',
-    href: '/staff',
-    icon: UsersIcon,
-    roles: ['business_admin'] // Only business admins can access staff management
-  },
-  {
-    name: 'Business Management', // Add this new navigation item
-    href: '/businesses',
-    icon: BuildingOfficeIcon,
-    roles: ['business_admin'] // Only business admins can access business management
-  },
-  {
-    name: 'Billing',
-    href: '/billing',
-    icon: CurrencyDollarIcon,
-    roles: ['super_admin', 'business_admin']
-  },
-  {
-    name: 'Settings',
-    href: '/settings',
-    icon: CogIcon,
-    roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
-  }
-];
+  const navigation = [
+    {
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: HomeIcon,
+      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
+    },
+    {
+      name: 'Appointments',
+      href: '/appointments',
+      icon: CalendarIcon,
+      roles: ['super_admin', 'business_admin', 'staff']
+    },
+    {
+      name: 'Clients',
+      href: '/clients',
+      icon: UserGroupIcon,
+      roles: ['super_admin', 'business_admin', 'staff']
+    },
+    {
+      name: 'Pets',
+      href: '/pets',
+      icon: HeartIcon,
+      roles: ['super_admin', 'business_admin', 'staff']
+    },
+    {
+      name: 'Calendar',
+      href: '/calendar',
+      icon: CalendarDaysIcon,
+      roles: ['super_admin', 'business_admin', 'staff']
+    },
+    {
+      name: 'Staff Management',
+      href: '/staff',
+      icon: UsersIcon,
+      roles: ['business_admin'] // Only business admins can access staff management
+    },
+    {
+      name: 'Business Management', // Add this new navigation item
+      href: '/businesses',
+      icon: BuildingOfficeIcon,
+      roles: ['business_admin'] // Only business admins can access business management
+    },
+    {
+      name: 'Billing',
+      href: '/billing',
+      icon: CurrencyDollarIcon,
+      roles: ['super_admin', 'business_admin']
+    },
+    {
+      name: 'Settings',
+      href: '/settings',
+      icon: CogIcon,
+      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
+    }
+  ];
 
 
   // Super Admin specific navigation items
   const superAdminNavigation = [
-    { 
-      name: 'Register Business', 
-      href: '/register-business-admin', 
-      icon: BuildingOfficeIcon, 
+    {
+      name: 'Register Business',
+      href: '/register-business-admin',
+      icon: BuildingOfficeIcon,
       current: location.pathname === '/register-business-admin',
       roles: ['super_admin'],
       isSpecial: true,
       description: 'Add new business admin'
+    },
+    {
+      name: 'Business Categories',
+      href: '/admin/categories',
+      icon: Squares2X2Icon,
+      current: location.pathname === '/admin/categories',
+      roles: ['super_admin'],
+      isSpecial: true,
+      description: 'Manage business categories'
     },
   ];
 
@@ -100,7 +110,7 @@ const Sidebar = () => {
     let filteredNav = [];
 
     // Filter base navigation by user role
-    filteredNav = navigation.filter(item => 
+    filteredNav = navigation.filter(item =>
       item.roles.includes(user.role)
     );
 
@@ -115,7 +125,7 @@ const Sidebar = () => {
 
     // Special handling for pet owners - they see a simplified view
     if (user.role === 'pet_owner') {
-      filteredNav = filteredNav.filter(item => 
+      filteredNav = filteredNav.filter(item =>
         ['Dashboard', 'Appointments', 'Pets', 'Billing', 'Messages', 'Settings'].includes(item.name)
       );
     }
@@ -180,9 +190,8 @@ const Sidebar = () => {
                           <li key={item.name}>
                             <Link
                               to={item.href}
-                              className={`sidebar-item ${
-                                item.current ? 'sidebar-item-active' : 'sidebar-item-inactive'
-                              } ${item.isSpecial ? 'relative' : ''}`}
+                              className={`sidebar-item ${item.current ? 'sidebar-item-active' : 'sidebar-item-inactive'
+                                } ${item.isSpecial ? 'relative' : ''}`}
                               onClick={() => dispatch(setSidebarOpen(false))}
                               title={item.description || item.name}
                             >
@@ -196,7 +205,7 @@ const Sidebar = () => {
                         ))}
                       </ul>
                     </li>
-                    
+
                     {/* User Info Section */}
                     {user && (
                       <li className="mt-auto">
@@ -251,9 +260,8 @@ const Sidebar = () => {
                     <li key={item.name}>
                       <Link
                         to={item.href}
-                        className={`sidebar-item ${
-                          item.current ? 'sidebar-item-active' : 'sidebar-item-inactive'
-                        } ${item.isSpecial ? 'relative' : ''}`}
+                        className={`sidebar-item ${item.current ? 'sidebar-item-active' : 'sidebar-item-inactive'
+                          } ${item.isSpecial ? 'relative' : ''}`}
                         title={item.description || item.name}
                       >
                         <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
@@ -266,7 +274,7 @@ const Sidebar = () => {
                   ))}
                 </ul>
               </li>
-              
+
               {/* User Info Section */}
               {user && (
                 <li className="mt-auto">

@@ -1,3 +1,4 @@
+// Server/src/models/Business.js (Updated)
 const mongoose = require('mongoose');
 
 const BusinessSchema = new mongoose.Schema({
@@ -9,6 +10,14 @@ const BusinessSchema = new mongoose.Schema({
     website: String,
     email: { type: String, required: true, lowercase: true },
     phone: { type: String, required: true },
+    // Add category reference to BusinessCategory model
+    category: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'BusinessCategory',
+      required: true
+    },
+    // Keep legacy category field for backward compatibility
+    legacyCategory: String, // 'grooming', 'veterinary', 'boarding', etc.
     address: {
       street: { type: String, required: true },
       city: { type: String, required: true },
@@ -25,7 +34,7 @@ const BusinessSchema = new mongoose.Schema({
       amount: Number,
       currency: { type: String, default: 'INR' }
     },
-    category: String, // 'grooming', 'veterinary', 'boarding'
+    category: String, // Service category, different from business category
     isActive: { type: Boolean, default: true }
   }],
   schedule: {
@@ -89,5 +98,11 @@ const BusinessSchema = new mongoose.Schema({
 // Indexes
 BusinessSchema.index({ 'profile.email': 1 });
 BusinessSchema.index({ 'profile.name': 'text', 'profile.description': 'text' });
+BusinessSchema.index({ 'profile.category': 1 });
+
+// Populate category when querying businesses
+BusinessSchema.pre(['find', 'findOne', 'findOneAndUpdate'], function() {
+  this.populate('profile.category', 'name slug color icon description');
+});
 
 module.exports = mongoose.model('Business', BusinessSchema);

@@ -91,15 +91,43 @@ class AuthController {
         subscription = {}
       } = businessData;
 
+      // Add category validation (same as createBusiness)
+      if (!profile?.name || !profile?.companyName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Business name and company name are required'
+        });
+      }
+
+      // Validate category if provided
+      if (!profile?.category) {
+        return res.status(400).json({
+          success: false,
+          message: 'Business category is required'
+        });
+      }
+
+      // Verify category exists
+      const BusinessCategory = require('../models/BusinessCategory');
+      const categoryExists = await BusinessCategory.findById(profile.category);
+      if (!categoryExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid business category'
+        });
+      }
+
       // Build business payload
       const businessPayload = {
         profile: {
           name: profile.name,
+          companyName: profile.companyName, // Add companyName field
           description: profile.description || '',
           logo: profile.logo || '',
           website: profile.website || '',
           email: profile.email.toLowerCase(),
           phone: profile.phone,
+          category: profile.category, // Add the category ID to the business payload
           address: {
             street: profile.address.street,
             city: profile.address.city,
@@ -166,13 +194,23 @@ class AuthController {
       user.business.push(createdBusiness._id);
       await user.save();
 
+      // Populate category information in response
+      await createdBusiness.populate('profile.category', 'name slug color icon description');
+
       // Audit business creation
       await auditService.log({
         user: user._id,
         action: 'CREATE_BUSINESS',
         resource: 'business',
         resourceId: createdBusiness._id,
-        metadata: { ipAddress: req.ip, userAgent: req.get('User-Agent'), businessName: createdBusiness.profile.name, createdBy: req.user.userId }
+        metadata: { 
+          ipAddress: req.ip, 
+          userAgent: req.get('User-Agent'), 
+          businessName: createdBusiness.profile.name,
+          companyName: createdBusiness.profile.companyName, // Add companyName to audit
+          categoryId: createdBusiness.profile.category, // Add categoryId to audit
+          createdBy: req.user.userId 
+        }
       });
     }
 
@@ -197,8 +235,10 @@ class AuthController {
       business: createdBusiness ? {
         id: createdBusiness._id,
         name: createdBusiness.profile.name,
+        companyName: createdBusiness.profile.companyName, // Include companyName in response
         email: createdBusiness.profile.email,
         phone: createdBusiness.profile.phone,
+        category: createdBusiness.profile.category, // Include populated category
         address: createdBusiness.profile.address,
         services: createdBusiness.services,
         settings: createdBusiness.settings,

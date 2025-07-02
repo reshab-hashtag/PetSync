@@ -25,6 +25,7 @@ import './App.css';
 import BusinessAdminRegistrationForm from './components/auth/BusinessAdminRegistrationForm.jsx';
 import StaffList from './components/staff/StaffList.jsx';
 import BusinessList from './components/business/BusinessList.jsx';
+import SuperAdminCategories from './components/admin/SuperAdminCategories.jsx';
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
                <Route path="businesses" element={<BusinessList                               />} />
               <Route path="staff" element={<StaffList                                        />} />
               <Route path="/register-business-admin" element={<BusinessAdminRegistrationForm />} />
+              <Route path="/admin/categories" element={<SuperAdminCategories                 />} />
               {/* 404 under the dashboard layout */}
               <Route
                 path="*"
