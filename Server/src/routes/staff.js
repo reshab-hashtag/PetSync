@@ -86,6 +86,18 @@ const validateStaffUpdate = [
 // STAFF MANAGEMENT ROUTES
 // ===================================
 
+// Get all staff members with enhanced details (e.g., businesses, roles)
+router.get('/enhanced', 
+  authenticate,
+  staffController.getAllStaffMembersEnhanced
+);
+
+// Alternative endpoint for staff with businesses
+router.get('/with-businesses', 
+  authenticate,
+  staffController.getAllStaffWithBusinesses
+);
+
 // Get all staff members in a business
 router.get('/:businessId', 
   authenticate, 
@@ -99,6 +111,8 @@ router.get('/',
   requireRole([ROLES.BUSINESS_ADMIN]), 
   staffController.getAllStaffMembers
 );
+
+
 
 // Get staff statistics
 router.get('/stats', 

@@ -12,6 +12,9 @@ router.put('/update', authLimiter,authenticate, businessController.updateBusines
 // Get all businesses
 router.get('/get', authLimiter,authenticate, businessController.getAllBusinesses );
 
+// get business details
+router.get('/get/:businessId', authLimiter, authenticate, businessController.getBusiness );
+
 // Add staff to business
 router.post('/add-staff/:businessId', authLimiter, authenticate, businessController.addStaff );
 

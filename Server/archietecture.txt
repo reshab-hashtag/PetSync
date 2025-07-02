@@ -1,0 +1,22 @@
+
+
+
+
+
+
+
+
+[User]───<has pets>───[Pet]
+   │                        \
+   │                         └───<documents>
+   ├─<businesses>───[Business]───┬─<services>
+   │                             ├─<appointments>
+   │                             │       │
+   │                             │       ├─client→[User]
+   │                             │       ├─pet→[Pet]
+   │                             │       ├─service→[Service]
+   │                             │       └─staff→[User]
+   │                             └─<invoices>
+   │                                     ├─client→[User]
+   │                                     └─appointment→[Appointment]
+   └─<messages>──────────[Message] (from/to Users, optional appointment)

@@ -1,8 +1,30 @@
-// client/src/store/slices/staffSlice.js
+// client/src/store/slices/staffSlice.js - Enhanced version
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
-// Async thunks
+// Enhanced async thunk to fetch staff with business details
+export const fetchStaffMembersWithBusinesses = createAsyncThunk(
+  'staff/fetchStaffMembersWithBusinesses',
+  async (filters = {}, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams();
+      
+      Object.keys(filters).forEach(key => {
+        if (filters[key] && filters[key] !== 'all') {
+          params.append(key, filters[key]);
+        }
+      });
+
+      // Use the enhanced endpoint that includes business details
+      const response = await api.get(`/staff/enhanced?${params.toString()}`);
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch staff members with businesses');
+    }
+  }
+);
+
+// Keep the original fetchStaffMembers for backward compatibility
 export const fetchStaffMembers = createAsyncThunk(
   'staff/fetchStaffMembers',
   async (filters = {}, { rejectWithValue }) => {
@@ -62,7 +84,6 @@ export const updateStaffMember = createAsyncThunk(
 export const toggleStaffStatus = createAsyncThunk(
   'staff/toggleStaffStatus',
   async ({ id, isActive }, { rejectWithValue }) => {
-    console.log(id, isActive);
     try {
       const response = await api.patch(`/staff/${id}/status`, { isActive });
       return response.data;
@@ -116,7 +137,8 @@ const initialState = {
     active: 0,
     inactive: 0,
     staff: 0,
-    admins: 0
+    admins: 0,
+    managers: 0
   },
   pagination: {
     current: 1,
@@ -131,7 +153,10 @@ const initialState = {
     page: 1
   },
   loading: false,
-  error: null
+  error: null,
+  // New state for enhanced view
+  viewMode: 'enhanced', // 'simple' or 'enhanced'
+  expandedStaff: []
 };
 
 const staffSlice = createSlice({
@@ -147,11 +172,26 @@ const staffSlice = createSlice({
     clearCurrentStaff: (state) => {
       state.currentStaff = null;
     },
-    resetStaffState: () => initialState
+    resetStaffState: () => initialState,
+    setViewMode: (state, action) => {
+      state.viewMode = action.payload;
+    },
+    toggleStaffExpansion: (state, action) => {
+      const staffId = action.payload;
+      const index = state.expandedStaff.indexOf(staffId);
+      if (index > -1) {
+        state.expandedStaff.splice(index, 1);
+      } else {
+        state.expandedStaff.push(staffId);
+      }
+    },
+    setExpandedStaff: (state, action) => {
+      state.expandedStaff = action.payload;
+    }
   },
   extraReducers: (builder) => {
     builder
-      // Fetch staff members
+      // Fetch staff members (original)
       .addCase(fetchStaffMembers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -162,6 +202,30 @@ const staffSlice = createSlice({
         state.pagination = action.payload.pagination || state.pagination;
       })
       .addCase(fetchStaffMembers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Fetch staff members with businesses (enhanced)
+      .addCase(fetchStaffMembersWithBusinesses.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchStaffMembersWithBusinesses.fulfilled, (state, action) => {
+        state.loading = false;
+        state.staffMembers = action.payload.staff || [];
+        state.pagination = action.payload.pagination || state.pagination;
+        
+        // Calculate enhanced stats
+        const staffWithBusinesses = action.payload.staff || [];
+        state.stats.total = staffWithBusinesses.length;
+        state.stats.active = staffWithBusinesses.filter(s => s.isActive).length;
+        state.stats.inactive = staffWithBusinesses.filter(s => !s.isActive).length;
+        state.stats.staff = staffWithBusinesses.filter(s => s.role === 'staff').length;
+        state.stats.admins = staffWithBusinesses.filter(s => s.role === 'business_admin').length;
+        state.stats.managers = staffWithBusinesses.filter(s => s.role === 'manager').length;
+      })
+      .addCase(fetchStaffMembersWithBusinesses.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -198,6 +262,8 @@ const staffSlice = createSlice({
           state.stats.staff += 1;
         } else if (action.payload.data.staff.role === 'business_admin') {
           state.stats.admins += 1;
+        } else if (action.payload.data.staff.role === 'manager') {
+          state.stats.managers += 1;
         }
       })
       .addCase(createStaffMember.rejected, (state, action) => {
@@ -290,12 +356,15 @@ export const {
   clearError, 
   updateFilters, 
   clearCurrentStaff, 
-  resetStaffState 
+  resetStaffState,
+  setViewMode,
+  toggleStaffExpansion,
+  setExpandedStaff
 } = staffSlice.actions;
 
 export default staffSlice.reducer;
 
-// Selectors
+// Enhanced selectors
 export const selectStaffMembers = (state) => state.staff.staffMembers;
 export const selectCurrentStaff = (state) => state.staff.currentStaff;
 export const selectStaffStats = (state) => state.staff.stats;
@@ -303,3 +372,21 @@ export const selectStaffPagination = (state) => state.staff.pagination;
 export const selectStaffFilters = (state) => state.staff.filters;
 export const selectStaffLoading = (state) => state.staff.loading;
 export const selectStaffError = (state) => state.staff.error;
+export const selectViewMode = (state) => state.staff.viewMode;
+export const selectExpandedStaff = (state) => state.staff.expandedStaff;
+
+// Enhanced selectors for business-related data
+export const selectStaffWithBusinessCount = (state) => 
+  state.staff.staffMembers.map(staff => ({
+    ...staff,
+    businessCount: staff.business ? staff.business.length : 0
+  }));
+
+export const selectStaffByBusinessCount = (state) => {
+  const staff = state.staff.staffMembers;
+  return {
+    withBusinesses: staff.filter(s => s.business && s.business.length > 0),
+    withoutBusinesses: staff.filter(s => !s.business || s.business.length === 0),
+    multipleBusinesses: staff.filter(s => s.business && s.business.length > 1)
+  };
+};

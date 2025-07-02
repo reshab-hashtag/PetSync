@@ -195,6 +195,241 @@ class StaffController {
   }
 
 
+  // Get all staff members with their business assignments for admin
+async getAllStaffWithBusinesses(req, res, next) {
+  console.log("getAllStaffWithBusinesses called");
+  try {
+    // 1) Only BUSINESS_ADMIN and SUPER_ADMIN may call this
+    if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Business admins and super admins only.'
+      });
+    }
+
+    // 2) Parse pagination + filters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const { search, status, role } = req.query;
+    const skip = (page - 1) * limit;
+
+    let staffQuery = {};
+    let businessFilter = {};
+
+    // 3) If business admin, only get staff from their businesses
+    if (req.user.role === ROLES.BUSINESS_ADMIN) {
+      const owned = req.user.userData?.business;
+      if (!Array.isArray(owned) || owned.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You dont have any businesses yet.'
+        });
+      }
+      const ownedIds = owned.map(b => (
+        typeof b === 'object' ? b._id.toString() : b.toString()
+      ));
+      
+      // Filter to only staff assigned to admin's businesses
+      staffQuery.business = { $in: ownedIds };
+      businessFilter._id = { $in: ownedIds };
+    }
+
+    // 4) Apply role filter
+    if (role && role !== 'all') {
+      staffQuery.role = role;
+    }
+
+    // 5) Apply status filter
+    if (status && status !== 'all') {
+      staffQuery.isActive = status === 'active';
+    }
+
+    // 6) Apply search filter
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      staffQuery.$or = [
+        { 'profile.firstName': searchRegex },
+        { 'profile.lastName': searchRegex },
+        { 'profile.email': searchRegex }
+      ];
+    }
+
+    // 7) Fetch staff members with populated business details
+    const staffMembers = await User.find(staffQuery)
+      .select('profile.firstName profile.lastName profile.email role isActive business createdAt updatedAt')
+      .populate({
+        path: 'business',
+        match: businessFilter,
+        select: 'profile.name profile.email profile.phone isActive staff',
+        populate: {
+          path: 'staff',
+          select: '_id' // Just get the count
+        }
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // 8) Get total count for pagination
+    const totalCount = await User.countDocuments(staffQuery);
+
+    // 9) Filter out staff who don't have any businesses (in case of role-based filtering)
+    const filteredStaff = staffMembers.filter(staff => 
+      staff.business && staff.business.length > 0
+    );
+
+    // 10) Respond
+    return res.json({
+      success: true,
+      data: {
+        staff: filteredStaff,
+        pagination: {
+          current: page,
+          pages: Math.ceil(totalCount / limit),
+          total: totalCount,
+          limit
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getAllStaffWithBusinesses error:', error);
+    next(error);
+  }
+}
+
+// Enhanced version of getAllStaffMembers with business details
+async getAllStaffMembersEnhanced(req, res, next) {
+  console.log("getAllStaffMembersEnhanced called");
+  try {
+    // 1) Only BUSINESS_ADMIN and SUPER_ADMIN may call this
+    if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Business admins and super admins only.'
+      });
+    }
+
+    // 2) Parse pagination + filters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const { search, status, role } = req.query;
+    const skip = (page - 1) * limit;
+
+    let businessIds = [];
+
+    // 3) Get business IDs based on user role
+    if (req.user.role === ROLES.BUSINESS_ADMIN) {
+      const owned = req.user.userData?.business;
+      if (!Array.isArray(owned) || owned.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You dont have any businesses yet.'
+        });
+      }
+      businessIds = owned.map(b => (
+        typeof b === 'object' ? b._id.toString() : b.toString()
+      ));
+    } else if (req.user.role === ROLES.SUPER_ADMIN) {
+      // Super admin can see all businesses
+      const allBusinesses = await Business.find({}).select('_id');
+      businessIds = allBusinesses.map(b => b._id.toString());
+    }
+
+    // 4) Find all businesses and populate their staff
+    const businesses = await Business.find({ _id: { $in: businessIds } })
+      .select('profile.name profile.email profile.phone isActive staff createdAt')
+      .populate({
+        path: 'staff',
+        select: 'profile.firstName profile.lastName profile.email profile.phone role isActive business createdAt',
+        populate: {
+          path: 'business',
+          select: 'profile.name profile.email profile.phone isActive staff'
+        }
+      });
+
+    // 5) Flatten staff and remove duplicates while maintaining business relationships
+    const staffMap = new Map();
+    
+    businesses.forEach(business => {
+      business.staff.forEach(staffMember => {
+        const staffId = staffMember._id.toString();
+        
+        if (staffMap.has(staffId)) {
+          // Add this business to existing staff member's business list
+          const existingStaff = staffMap.get(staffId);
+          if (!existingStaff.business.some(b => b._id.toString() === business._id.toString())) {
+            existingStaff.business.push({
+              _id: business._id,
+              profile: business.profile,
+              isActive: business.isActive,
+              staff: business.staff.map(s => s._id) // Just IDs for count
+            });
+          }
+        } else {
+          // Create new staff entry with business info
+          const staffWithBusiness = {
+            ...staffMember.toObject(),
+            business: [{
+              _id: business._id,
+              profile: business.profile,
+              isActive: business.isActive,
+              staff: business.staff.map(s => s._id) // Just IDs for count
+            }]
+          };
+          staffMap.set(staffId, staffWithBusiness);
+        }
+      });
+    });
+
+    // 6) Convert map to array
+    let allStaff = Array.from(staffMap.values());
+
+    // 7) Apply filters
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      allStaff = allStaff.filter(staff =>
+        searchRegex.test(staff.profile.firstName) ||
+        searchRegex.test(staff.profile.lastName) ||
+        searchRegex.test(staff.profile.email) 
+      );
+    }
+
+    if (status && status !== 'all') {
+      const isActive = status === 'active';
+      allStaff = allStaff.filter(staff => staff.isActive === isActive);
+    }
+
+    if (role && role !== 'all') {
+      allStaff = allStaff.filter(staff => staff.role === role);
+    }
+
+    // 8) Sort by creation date (newest first)
+    allStaff.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // 9) Apply pagination
+    const total = allStaff.length;
+    const paginatedStaff = allStaff.slice(skip, skip + limit);
+
+    // 10) Respond
+    return res.json({
+      success: true,
+      data: {
+        staff: paginatedStaff,
+        pagination: {
+          current: page,
+          pages: Math.ceil(total / limit),
+          total,
+          limit
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getAllStaffMembersEnhanced error:', error);
+    next(error);
+  }
+}
+
+
   // Get single staff member
   async getStaffMember(req, res, next) {
     try {
@@ -348,17 +583,6 @@ class StaffController {
     try {
       const { id } = req.params;
       const updates = req.body;
-
-      // First, get the business to check if the user is staff
-      const Business = require('../models/Business');
-      const business = await Business.findById(req.user.businessId);
-      
-      if (!business || !business.staff.includes(id)) {
-        return res.status(404).json({
-          success: false,
-          message: 'Staff member not found'
-        });
-      }
 
       const staff = await User.findById(id);
       if (!staff) {
@@ -548,7 +772,9 @@ class StaffController {
 
       // First, get the business to check if the user is staff
       const Business = require('../models/Business');
+      console.log(req.user.userData)
       const business = await Business.findById(req.user.businessId);
+      
       
       if (!business || !business.staff.includes(id)) {
         return res.status(404).json({

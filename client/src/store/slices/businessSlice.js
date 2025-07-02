@@ -1,4 +1,4 @@
-// client/src/store/slices/businessSlice.js
+// client/src/store/slices/businessSlice.js - Enhanced version with createBusiness
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../services/api';
 
@@ -27,10 +27,22 @@ export const fetchBusinessDetails = createAsyncThunk(
   'business/fetchBusinessDetails',
   async (id, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/admin/businesses/${id}`);
+      const response = await api.get(`/business/get/${id}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch business details');
+    }
+  }
+);
+
+export const createBusiness = createAsyncThunk(
+  'business/createBusiness',
+  async (businessData, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/business/register', businessData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to create business');
     }
   }
 );
@@ -39,7 +51,7 @@ export const updateBusiness = createAsyncThunk(
   'business/updateBusiness',
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/admin/businesses/${id}`, data);
+      const response = await api.put(`/business/${id}`, data);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to update business');
@@ -59,6 +71,37 @@ export const toggleBusinessStatus = createAsyncThunk(
   }
 );
 
+export const deleteBusiness = createAsyncThunk(
+  'business/deleteBusiness',
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.delete(`/admin/businesses/${id}`);
+      return { id, ...response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete business');
+    }
+  }
+);
+
+
+
+export const addStaffToBusiness = createAsyncThunk(
+  'business/addStaffToBusiness',
+  async ({ businessId, email, role }, { rejectWithValue }) => {
+    console.log(businessId)
+    try {
+      const response = await api.post(`/business/add-staff/${businessId}`, {
+        email,
+        role
+      });
+      return { businessId, ...response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to add staff to business');
+    }
+  }
+);
+
+
 const initialState = {
   businesses: [],
   currentBusiness: null,
@@ -75,6 +118,7 @@ const initialState = {
   },
   loading: false,
   detailsLoading: false,
+  createLoading: false,
   error: null
 };
 
@@ -124,6 +168,25 @@ const businessSlice = createSlice({
         state.error = action.payload;
       })
 
+      // Create business
+      .addCase(createBusiness.pending, (state) => {
+        state.createLoading = true;
+        state.error = null;
+      })
+      .addCase(createBusiness.fulfilled, (state, action) => {
+        state.createLoading = false;
+        // Add the new business to the beginning of the list if we're on the first page
+        if (state.pagination.current === 1 && state.businesses.length < state.pagination.limit) {
+          state.businesses.unshift(action.payload.data.business);
+        }
+        // Update pagination total
+        state.pagination.total += 1;
+      })
+      .addCase(createBusiness.rejected, (state, action) => {
+        state.createLoading = false;
+        state.error = action.payload;
+      })
+
       // Update business
       .addCase(updateBusiness.pending, (state) => {
         state.loading = true;
@@ -158,6 +221,26 @@ const businessSlice = createSlice({
       })
       .addCase(toggleBusinessStatus.rejected, (state, action) => {
         state.error = action.payload;
+      })
+
+      // Delete business
+      .addCase(deleteBusiness.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(deleteBusiness.fulfilled, (state, action) => {
+        // Remove from businesses array
+        state.businesses = state.businesses.filter(business => business._id !== action.payload.id);
+        
+        // Update pagination total
+        state.pagination.total = Math.max(0, state.pagination.total - 1);
+        
+        // Clear current business if it's the deleted one
+        if (state.currentBusiness && state.currentBusiness._id === action.payload.id) {
+          state.currentBusiness = null;
+        }
+      })
+      .addCase(deleteBusiness.rejected, (state, action) => {
+        state.error = action.payload;
       });
   }
 });
@@ -178,4 +261,5 @@ export const selectBusinessPagination = (state) => state.business.pagination;
 export const selectBusinessFilters = (state) => state.business.filters;
 export const selectBusinessLoading = (state) => state.business.loading;
 export const selectBusinessDetailsLoading = (state) => state.business.detailsLoading;
+export const selectBusinessCreateLoading = (state) => state.business.createLoading;
 export const selectBusinessError = (state) => state.business.error;

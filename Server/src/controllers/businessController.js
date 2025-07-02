@@ -3,187 +3,190 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { ROLES } = require('../config/constants');
 const auditService = require('../services/auditService');
+const Appointment = require('../models/Appointment');
 
 class BusinessController {
   // Create new business (Business Admin only)
   async createBusiness(req, res, next) {
-    try {
+  try {
+    const {
+          businessData = {}   
+          } = req.body;
+
       const {
-            businessData = {}   
-            } = req.body;
+      profile,
+      services     = [],   
+      schedule,
+      settings      = {},
+      subscription  = {}
+      } = businessData;
 
-        const {
-        profile,
-        services     = [],   
-        schedule,
-        settings      = {},
-        subscription  = {}
-        } = businessData;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
 
-      const userId = req.user.userId;
-      const userRole = req.user.role;
-
-      // Only business_admin and super_admin can create businesses
-      if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(userRole)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Only business administrators can create businesses'
-        });
-      }
-
-      // Get the user creating the business
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      // Build business payload
-      const businessPayload = {
-        profile: {
-          name: profile.name,
-          description: profile.description || '',
-          logo: profile.logo || '',
-          website: profile.website || '',
-          email: profile.email.toLowerCase(),
-          phone: profile.phone,
-          address: {
-            street: profile.address.street,
-            city: profile.address.city,
-            state: profile.address.state,
-            zipCode: profile.address.zipCode,
-            country: profile.address.country || 'IND'
-          }
-        },
-        services: services.map(service => ({
-          name: service.name,
-          description: service.description || '',
-          duration: service.duration || 60,
-          price: {
-            amount: service.price?.amount || 0,
-            currency: service.price?.currency || 'INR'
-          },
-          category: service.category || 'general',
-          isActive: service.isActive !== false
-        })),
-        schedule: {
-          timezone: schedule?.timezone || 'Asia/Kolkata',
-          workingHours: schedule?.workingHours || {
-            monday: { isOpen: true, open: '09:00', close: '17:00' },
-            tuesday: { isOpen: true, open: '09:00', close: '17:00' },
-            wednesday: { isOpen: true, open: '09:00', close: '17:00' },
-            thursday: { isOpen: true, open: '09:00', close: '17:00' },
-            friday: { isOpen: true, open: '09:00', close: '17:00' },
-            saturday: { isOpen: true, open: '09:00', close: '15:00' },
-            sunday: { isOpen: false, open: '10:00', close: '14:00' }
-          },
-          breaks: schedule?.breaks || [],
-          holidays: schedule?.holidays || []
-        },
-        staff: [userId], // Add creator as first staff member
-        settings: {
-          appointmentBookingWindow: settings.appointmentBookingWindow || 30,
-          cancellationPolicy: {
-            hoursRequired: settings.cancellationPolicy?.hoursRequired || 24,
-            feePercentage: settings.cancellationPolicy?.feePercentage || 0
-          },
-          autoReminders: {
-            email: {
-              enabled: settings.autoReminders?.email?.enabled !== false,
-              hoursBefore: settings.autoReminders?.email?.hoursBefore || 24
-            },
-            sms: {
-              enabled: settings.autoReminders?.sms?.enabled || false,
-              hoursBefore: settings.autoReminders?.sms?.hoursBefore || 2
-            }
-          },
-          paymentMethods: {
-            cash: settings.paymentMethods?.cash !== false,
-            card: settings.paymentMethods?.card !== false,
-            online: settings.paymentMethods?.online !== false
-          }
-        },
-        subscription: {
-          plan: subscription.plan || 'free',
-          status: subscription.status || 'active',
-          expiresAt: subscription.plan !== 'free' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
-        },
-        isActive: true
-      };
-
-      // Create business
-      const business = new Business(businessPayload);
-      await business.save();
-
-      // Update user with business reference
-      user.business.push(business._id);
-      await user.save();
-
-      // Audit log
-      await auditService.log({
-        user: userId,
-        action: 'CREATE_BUSINESS',
-        resource: 'business',
-        resourceId: business._id,
-        metadata: {
-          ipAddress: req.ip,
-          userAgent: req.get('User-Agent'),
-          businessName: business.profile.name
-        }
+    // Only business_admin and super_admin can create businesses
+    if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only business administrators can create businesses'
       });
-
-      // Prepare response
-      const responseData = {
-        business: {
-          id: business._id,
-          name: business.profile.name,
-          email: business.profile.email,
-          phone: business.profile.phone,
-          address: business.profile.address,
-          services: business.services,
-          settings: business.settings,
-          subscription: business.subscription,
-          isActive: business.isActive,
-          createdAt: business.createdAt
-        }
-      };
-
-      res.status(201).json({
-        success: true,
-        message: 'Business created successfully',
-        data: responseData
-      });
-
-    } catch (error) {
-      console.error('Create business error:', error);
-      next(error);
     }
+
+    // Get the user creating the business
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Validation for required fields
+    if (!profile?.name || !profile?.companyName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Business name and company name are required'
+      });
+    }
+
+    // Build business payload
+    const businessPayload = {
+      profile: {
+        name: profile.name,
+        companyName: profile.companyName, // New company name field
+        description: profile.description || '',
+        logo: profile.logo || '',
+        website: profile.website || '',
+        email: profile.email.toLowerCase(),
+        phone: profile.phone,
+        address: {
+          street: profile.address.street,
+          city: profile.address.city,
+          state: profile.address.state,
+          zipCode: profile.address.zipCode,
+          country: profile.address.country || 'IND'
+        }
+      },
+      services: services.map(service => ({
+        name: service.name,
+        description: service.description || '',
+        duration: service.duration || 60,
+        price: {
+          amount: service.price?.amount || 0,
+          currency: service.price?.currency || 'INR'
+        },
+        category: service.category || 'general',
+        isActive: service.isActive !== false
+      })),
+      schedule: {
+        timezone: schedule?.timezone || 'Asia/Kolkata',
+        workingHours: schedule?.workingHours || {
+          monday: { isOpen: true, open: '09:00', close: '17:00' },
+          tuesday: { isOpen: true, open: '09:00', close: '17:00' },
+          wednesday: { isOpen: true, open: '09:00', close: '17:00' },
+          thursday: { isOpen: true, open: '09:00', close: '17:00' },
+          friday: { isOpen: true, open: '09:00', close: '17:00' },
+          saturday: { isOpen: true, open: '09:00', close: '15:00' },
+          sunday: { isOpen: false, open: '10:00', close: '14:00' }
+        },
+        breaks: schedule?.breaks || [],
+        holidays: schedule?.holidays || []
+      },
+      staff: [userId], // Add creator as first staff member
+      settings: {
+        appointmentBookingWindow: settings.appointmentBookingWindow || 30,
+        cancellationPolicy: {
+          hoursRequired: settings.cancellationPolicy?.hoursRequired || 24,
+          feePercentage: settings.cancellationPolicy?.feePercentage || 0
+        },
+        autoReminders: {
+          email: {
+            enabled: settings.autoReminders?.email?.enabled !== false,
+            hoursBefore: settings.autoReminders?.email?.hoursBefore || 24
+          },
+          sms: {
+            enabled: settings.autoReminders?.sms?.enabled || false,
+            hoursBefore: settings.autoReminders?.sms?.hoursBefore || 2
+          }
+        },
+        paymentMethods: {
+          cash: settings.paymentMethods?.cash !== false,
+          card: settings.paymentMethods?.card !== false,
+          online: settings.paymentMethods?.online !== false
+        }
+      },
+      subscription: {
+        plan: subscription.plan || 'free',
+        status: subscription.status || 'active',
+        expiresAt: subscription.plan !== 'free' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
+      },
+      isActive: true
+    };
+
+    // Create business
+    const business = new Business(businessPayload);
+    await business.save();
+
+    // Update user with business reference
+    user.business.push(business._id);
+    await user.save();
+
+    // Audit log
+    await auditService.log({
+      user: userId,
+      action: 'CREATE_BUSINESS',
+      resource: 'business',
+      resourceId: business._id,
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        businessName: business.profile.name,
+        companyName: business.profile.companyName
+      }
+    });
+
+    // Prepare response
+    const responseData = {
+      business: {
+        id: business._id,
+        name: business.profile.name,
+        companyName: business.profile.companyName, // Include in response
+        email: business.profile.email,
+        phone: business.profile.phone,
+        address: business.profile.address,
+        services: business.services,
+        settings: business.settings,
+        subscription: business.subscription,
+        isActive: business.isActive,
+        createdAt: business.createdAt
+      }
+    };
+
+    res.status(201).json({
+      success: true,
+      message: 'Business created successfully',
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Create business error:', error);
+    next(error);
   }
+}
 
   // Get business details
-  async getBusiness(req, res, next) {
+   async getBusiness(req, res, next) {
     try {
-      const userId = req.user.userId;
-      const userRole = req.user.role;     
-      const businessId = req.params.businessId || req.user.businessId;
-
+      const userId     = req.user.userId;
+      const userRole   = req.user.role;
+      const businessId = req.params.businessId;
 
       let business;
 
       if (userRole === ROLES.SUPER_ADMIN) {
         // Super admin can access any business
         business = await Business.findById(businessId)
-          .populate('staff', 'profile.firstName profile.lastName profile.email role')
-          .populate({
-            path: 'subBusinesses',
-            select: 'profile.name profile.email businessType isActive',
-            populate: {
-              path: 'owner',
-              select: 'profile.firstName profile.lastName'
-            }
-          });
+          .populate('staff', 'profile.firstName profile.lastName profile.email role');
       } else {
         // Business admin and staff can only access their own business
         const user = await User.findById(userId);
@@ -195,15 +198,7 @@ class BusinessController {
         }
 
         business = await Business.findById(user.business)
-          .populate('staff', 'profile.firstName profile.lastName profile.email role')
-          .populate({
-            path: 'subBusinesses',
-            select: 'profile.name profile.email businessType isActive',
-            populate: {
-              path: 'owner',
-              select: 'profile.firstName profile.lastName'
-            }
-          });
+          .populate('staff', 'profile.firstName profile.lastName profile.email role');
       }
 
       if (!business) {
@@ -214,21 +209,20 @@ class BusinessController {
       }
 
       // Get business metrics
-      const Appointment = require('../models/Appointment');
       const totalAppointments = await Appointment.countDocuments({ business: business._id });
-      const totalRevenue = await Appointment.aggregate([
+      const revenueAgg = await Appointment.aggregate([
         { $match: { business: business._id, status: 'completed' } },
         { $group: { _id: null, total: { $sum: '$payment.amount' } } }
       ]);
 
+      business.metrics = business.metrics || {};
       business.metrics.totalAppointments = totalAppointments;
-      business.metrics.totalRevenue = totalRevenue[0]?.total || 0;
+      business.metrics.totalRevenue      = revenueAgg[0]?.total || 0;
 
       res.json({
         success: true,
         data: { business }
       });
-
     } catch (error) {
       console.error('Get business error:', error);
       next(error);
@@ -405,6 +399,139 @@ class BusinessController {
       next(error);
     }
   }
+
+
+  // Enhanced version of getAllStaffMembers with business details
+async getAllStaffMembersEnhanced(req, res, next) {
+  console.log("getAllStaffMembersEnhanced called");
+  try {
+    // 1) Only BUSINESS_ADMIN and SUPER_ADMIN may call this
+    if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Business admins and super admins only.'
+      });
+    }
+
+    // 2) Parse pagination + filters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const { search, status, role } = req.query;
+    const skip = (page - 1) * limit;
+
+    let businessIds = [];
+
+    // 3) Get business IDs based on user role
+    if (req.user.role === ROLES.BUSINESS_ADMIN) {
+      const owned = req.user.userData?.business;
+      if (!Array.isArray(owned) || owned.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You dont have any businesses yet.'
+        });
+      }
+      businessIds = owned.map(b => (
+        typeof b === 'object' ? b._id.toString() : b.toString()
+      ));
+    } else if (req.user.role === ROLES.SUPER_ADMIN) {
+      // Super admin can see all businesses
+      const allBusinesses = await Business.find({}).select('_id');
+      businessIds = allBusinesses.map(b => b._id.toString());
+    }
+
+    // 4) Find all businesses and populate their staff
+    const businesses = await Business.find({ _id: { $in: businessIds } })
+      .select('profile.name profile.email profile.phone isActive staff createdAt')
+      .populate({
+        path: 'staff',
+        select: 'profile.firstName profile.lastName profile.email role isActive business createdAt',
+        populate: {
+          path: 'business',
+          select: 'profile.name profile.email profile.phone isActive staff'
+        }
+      });
+
+    // 5) Flatten staff and remove duplicates while maintaining business relationships
+    const staffMap = new Map();
+    
+    businesses.forEach(business => {
+      business.staff.forEach(staffMember => {
+        const staffId = staffMember._id.toString();
+        
+        if (staffMap.has(staffId)) {
+          // Add this business to existing staff member's business list
+          const existingStaff = staffMap.get(staffId);
+          if (!existingStaff.business.some(b => b._id.toString() === business._id.toString())) {
+            existingStaff.business.push({
+              _id: business._id,
+              profile: business.profile,
+              isActive: business.isActive,
+              staff: business.staff.map(s => s._id) // Just IDs for count
+            });
+          }
+        } else {
+          // Create new staff entry with business info
+          const staffWithBusiness = {
+            ...staffMember.toObject(),
+            business: [{
+              _id: business._id,
+              profile: business.profile,
+              isActive: business.isActive,
+              staff: business.staff.map(s => s._id) // Just IDs for count
+            }]
+          };
+          staffMap.set(staffId, staffWithBusiness);
+        }
+      });
+    });
+
+    // 6) Convert map to array
+    let allStaff = Array.from(staffMap.values());
+
+    // 7) Apply filters
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      allStaff = allStaff.filter(staff =>
+        searchRegex.test(staff.profile.firstName) ||
+        searchRegex.test(staff.profile.lastName) ||
+        searchRegex.test(staff.profile.email)
+      );
+    }
+
+    if (status && status !== 'all') {
+      const isActive = status === 'active';
+      allStaff = allStaff.filter(staff => staff.isActive === isActive);
+    }
+
+    if (role && role !== 'all') {
+      allStaff = allStaff.filter(staff => staff.role === role);
+    }
+
+    // 8) Sort by creation date (newest first)
+    allStaff.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // 9) Apply pagination
+    const total = allStaff.length;
+    const paginatedStaff = allStaff.slice(skip, skip + limit);
+
+    // 10) Respond
+    return res.json({
+      success: true,
+      data: {
+        staff: paginatedStaff,
+        pagination: {
+          current: page,
+          pages: Math.ceil(total / limit),
+          total,
+          limit
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getAllStaffMembersEnhanced error:', error);
+    next(error);
+  }
+}
 
   // Add staff to business
 async addStaff(req, res, next) {

@@ -10,12 +10,15 @@ import {
   CurrencyDollarIcon,
   MapPinIcon,
   PhoneIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { fetchBusinesses } from '../../store/slices/businessSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
-import BusinessDetails from './BusinessList';
+import BusinessDetails from './BusinessDetails';
+import BusinessForm from './BusinessForm';
+import toast from 'react-hot-toast';
 
 const BusinessList = () => {
   const dispatch = useDispatch();
@@ -28,8 +31,12 @@ const BusinessList = () => {
     page: 1
   });
 
+  const [modals, setModals] = useState({
+    details: false,
+    create: false
+  });
+
   const [selectedBusiness, setSelectedBusiness] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     dispatch(fetchBusinesses(filters));
@@ -47,14 +54,22 @@ const BusinessList = () => {
     setFilters(prev => ({ ...prev, page }));
   };
 
-  const handleViewDetails = (business) => {
+  const openModal = (type, business = null) => {
     setSelectedBusiness(business);
-    setShowDetails(true);
+    setModals(prev => ({ ...prev, [type]: true }));
   };
 
-  const closeDetails = () => {
-    setShowDetails(false);
+  const closeModal = (type) => {
+    setModals(prev => ({ ...prev, [type]: false }));
     setSelectedBusiness(null);
+  };
+
+  const handleViewDetails = (business) => {
+    openModal('details', business);
+  };
+
+  const handleCreateBusiness = () => {
+    openModal('create');
   };
 
   const getStatusBadge = (isActive) => {
@@ -90,6 +105,9 @@ const BusinessList = () => {
     }).format(amount || 0);
   };
 
+  // Check if user can create businesses
+  const canCreateBusiness = user?.role === 'business_admin' || user?.role === 'super_admin';
+
   if (loading && !businesses.length) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -111,6 +129,15 @@ const BusinessList = () => {
             }
           </p>
         </div>
+        {canCreateBusiness && (
+          <button
+            onClick={handleCreateBusiness}
+            className="btn-primary inline-flex items-center"
+          >
+            <PlusIcon className="w-4 h-4 mr-2" />
+            Create Business
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -159,10 +186,17 @@ const BusinessList = () => {
                   <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center">
                     <BuildingOfficeIcon className="h-6 w-6 text-indigo-600" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-medium text-gray-900 truncate">
                       {business.profile.name}
                     </h3>
+                    {/* Display company name if different from business name */}
+                    {business.profile.companyName && 
+                     business.profile.companyName !== business.profile.name && (
+                      <p className="text-sm text-gray-600 truncate" title={business.profile.companyName}>
+                        {business.profile.companyName}
+                      </p>
+                    )}
                     <div className="flex items-center space-x-2 mt-1">
                       {getStatusBadge(business.isActive)}
                       {getSubscriptionBadge(business.subscription)}
@@ -171,7 +205,7 @@ const BusinessList = () => {
                 </div>
                 <button
                   onClick={() => handleViewDetails(business)}
-                  className="text-indigo-600 hover:text-indigo-900"
+                  className="text-indigo-600 hover:text-indigo-900 ml-2"
                   title="View Details"
                 >
                   <EyeIcon className="h-5 w-5" />
@@ -182,20 +216,22 @@ const BusinessList = () => {
               <div className="mt-4 space-y-2">
                 {business.profile.email && (
                   <div className="flex items-center text-sm text-gray-600">
-                    <EnvelopeIcon className="h-4 w-4 mr-2" />
-                    {business.profile.email}
+                    <EnvelopeIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="truncate">{business.profile.email}</span>
                   </div>
                 )}
                 {business.profile.phone && (
                   <div className="flex items-center text-sm text-gray-600">
-                    <PhoneIcon className="h-4 w-4 mr-2" />
-                    {business.profile.phone}
+                    <PhoneIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="truncate">{business.profile.phone}</span>
                   </div>
                 )}
                 {business.profile.address?.city && (
                   <div className="flex items-center text-sm text-gray-600">
-                    <MapPinIcon className="h-4 w-4 mr-2" />
-                    {business.profile.address.city}, {business.profile.address.state}
+                    <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="truncate">
+                      {business.profile.address.city}, {business.profile.address.state}
+                    </span>
                   </div>
                 )}
               </div>
@@ -266,6 +302,18 @@ const BusinessList = () => {
                 </div>
               </div>
             )}
+
+            {/* Company Name Section (if it's the same as business name, show it here) */}
+            {business.profile.companyName && 
+             business.profile.companyName === business.profile.name && (
+              <div className="border-t border-gray-200 px-6 py-3">
+                <div className="flex items-center text-xs text-gray-500">
+                  <BuildingOfficeIcon className="h-3 w-3 mr-1" />
+                  <span className="font-medium">Legal Name:</span>
+                  <span className="ml-1 truncate">{business.profile.companyName}</span>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -278,9 +326,22 @@ const BusinessList = () => {
           <p className="mt-1 text-sm text-gray-500">
             {filters.search 
               ? 'Try adjusting your search criteria.'
-              : 'No businesses are available to display.'
+              : canCreateBusiness 
+                ? 'Get started by creating your first business.'
+                : 'No businesses are available to display.'
             }
           </p>
+          {canCreateBusiness && !filters.search && (
+            <div className="mt-6">
+              <button
+                onClick={handleCreateBusiness}
+                className="btn-primary inline-flex items-center"
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Create Business
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -358,17 +419,34 @@ const BusinessList = () => {
 
       {/* Business Details Modal */}
       <Modal
-        isOpen={showDetails}
-        onClose={closeDetails}
-        title={selectedBusiness?.profile.name}
+        isOpen={modals.details}
+        onClose={() => closeModal('details')}
+        title={`${selectedBusiness?.profile.name}${selectedBusiness?.profile.companyName && selectedBusiness?.profile.companyName !== selectedBusiness?.profile.name ? ` (${selectedBusiness.profile.companyName})` : ''}`}
         size="xl"
       >
         {selectedBusiness && (
           <BusinessDetails
             business={selectedBusiness}
-            onClose={closeDetails}
+            onClose={() => closeModal('details')}
           />
         )}
+      </Modal>
+
+      {/* Create Business Modal */}
+      <Modal
+        isOpen={modals.create}
+        onClose={() => closeModal('create')}
+        title="Create New Business"
+        size="xl"
+      >
+        <BusinessForm
+          onSuccess={() => {
+            closeModal('create');
+            dispatch(fetchBusinesses(filters));
+            toast.success('Business created successfully!');
+          }}
+          onCancel={() => closeModal('create')}
+        />
       </Modal>
     </div>
   );

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const BusinessSchema = new mongoose.Schema({
   profile: {
     name: { type: String, required: true, trim: true },
+    companyName: { type: String, required: true, trim: true },
     description: String,
     logo: String,
     website: String,

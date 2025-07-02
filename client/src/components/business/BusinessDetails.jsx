@@ -1,6 +1,6 @@
 // client/src/components/business/BusinessDetails.jsx
 import React, { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+// import { useDispatch } from 'react-redux';
 import {
   BuildingOfficeIcon,
   EnvelopeIcon,
@@ -12,37 +12,38 @@ import {
   CurrencyDollarIcon,
   ChartBarIcon,
   ClockIcon,
-  CreditCardIcon,
+  // CreditCardIcon,
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import { fetchBusinessDetails } from '../../store/slices/businessSlice';
+// import { fetchBusinessDetails } from '../../store/slices/businessSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const BusinessDetails = ({ business, onClose }) => {
-  const dispatch = useDispatch();
+  // const dispatch = useDispatch();
   const [detailedBusiness, setDetailedBusiness] = useState(business);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    const loadBusinessDetails = async () => {
-      setLoading(true);
-      try {
-        const result = await dispatch(fetchBusinessDetails(business._id)).unwrap();
-        setDetailedBusiness(result.data.business);
-      } catch (error) {
-        console.error('Failed to load business details:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // useEffect(() => {
+  //   const loadBusinessDetails = async () => {
+  //     setLoading(true);
+  //     try {
+  //       const result = await dispatch(fetchBusinessDetails(business._id)).unwrap();
+  //       setDetailedBusiness(result.data.business);
+  //       console.log('Business details loaded:', result.data.business);
+  //     } catch (error) {
+  //       console.error('Failed to load business details:', error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    if (business._id) {
-      loadBusinessDetails();
-    }
-  }, [business._id, dispatch]);
+  //   if (business._id) {
+  //     loadBusinessDetails();
+  //   }
+  // }, [business._id, dispatch]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
