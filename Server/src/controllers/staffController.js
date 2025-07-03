@@ -766,67 +766,132 @@ async getAllStaffMembersEnhanced(req, res, next) {
   }
 
   // Delete staff member
-  async deleteStaffMember(req, res, next) {
-    try {
-      const { id } = req.params;
+async deleteStaffMember(req, res, next) {
+  try {
+    const { id } = req.params;
+    const Business = require('../models/Business');
+    
+    
+    // Find the staff member first
+    const staff = await User.findById(id);
+    if (!staff) {
+      return res.status(404).json({
+        success: false,
+        message: 'Staff member not found'
+      });
+    }
 
-      // First, get the business to check if the user is staff
-      const Business = require('../models/Business');
-      console.log(req.user.userData)
-      const business = await Business.findById(req.user.businessId);
-      
-      
-      if (!business || !business.staff.includes(id)) {
-        return res.status(404).json({
-          success: false,
-          message: 'Staff member not found'
-        });
-      }
+    // Prevent self-deletion
+    if (staff._id.toString() === req.user.userId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot delete yourself'
+      });
+    }
 
-      const staff = await User.findById(id);
-      if (!staff) {
-        return res.status(404).json({
-          success: false,
-          message: 'Staff member not found'
-        });
-      }
+    // Get all businesses where the requesting user is the owner/admin
+    const userBusinesses = req.user.userData.business || [];
+    
+    if (!userBusinesses || userBusinesses.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not own any businesses'
+      });
+    }
 
-      // Remove staff from business staff array
+    // Extract business IDs that the current user owns
+    const ownedBusinessIds = userBusinesses.map(business => business._id.toString());
+    
+    // Find businesses where the staff member is actually present
+    const businessesWithStaff = await Business.find({
+      _id: { $in: ownedBusinessIds },
+      staff: id
+    });
+
+    if (businessesWithStaff.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Staff member is not associated with any of your businesses'
+      });
+    }
+
+    // Track which businesses the staff will be removed from
+    const removedFromBusinesses = [];
+
+    // Remove staff from all owned businesses
+    for (const business of businessesWithStaff) {
       await Business.findByIdAndUpdate(
-        req.user.businessId,
+        business._id,
         { $pull: { staff: id } }
       );
-
-      // Remove business from user's business array
-      staff.business = staff.business.filter(
-        businessId => businessId.toString() !== req.user.businessId.toString()
-      );
-
-      // If user has no more businesses, deactivate them
-      if (staff.business.length === 0) {
-        staff.isActive = false;
-        staff.profile.email = `deleted_${Date.now()}_${staff.profile.email}`;
-      }
-
-      await staff.save();
-
-      // Log deletion
+      removedFromBusinesses.push(business._id.toString());
+      
+      // Log the deletion for each business
       await auditService.log({
         user: req.user.userId,
-        business: req.user.businessId,
+        business: business._id,
         action: 'DELETE',
         resource: 'staff',
-        resourceId: staff._id
+        resourceId: staff._id,
+        details: {
+          staffName: staff.fullName || `${staff.profile.firstName} ${staff.profile.lastName}`,
+          staffEmail: staff.profile.email
+        }
       });
-
-      res.json({
-        success: true,
-        message: 'Staff member removed from business successfully'
-      });
-    } catch (error) {
-      next(error);
     }
+
+    // Update staff member's business array - remove only the businesses we removed them from
+    staff.business = staff.business.filter(
+      businessId => !removedFromBusinesses.includes(businessId.toString())
+    );
+
+    // Check if staff member has any remaining business associations
+    const remainingBusinessCount = await Business.countDocuments({
+      staff: id
+    });
+
+    // If staff has no remaining business associations, deactivate them
+    if (remainingBusinessCount === 0 && staff.business.length === 0) {
+      staff.isActive = false;
+      // Optionally archive their email to prevent conflicts
+      if (!staff.profile.email.startsWith('deleted_')) {
+        staff.profile.email = `deleted_${Date.now()}_${staff.profile.email}`;
+      }
+    }
+
+    await staff.save();
+
+    // Prepare response message
+    const businessNames = businessesWithStaff.map(b => b.profile?.name || 'Unknown').join(', ');
+    let message = `Staff member removed successfully from ${businessesWithStaff.length} business${businessesWithStaff.length > 1 ? 'es' : ''}`;
+    
+    if (remainingBusinessCount === 0) {
+      message += ' and deactivated (no remaining business associations)';
+    }
+
+    res.json({
+      success: true,
+      message,
+      data: {
+        staffMember: {
+          id: staff._id,
+          name: staff.fullName || `${staff.profile.firstName} ${staff.profile.lastName}`,
+          email: staff.profile.email,
+          isActive: staff.isActive
+        },
+        removedFromBusinesses: businessesWithStaff.map(b => ({
+          id: b._id,
+          name: b.profile?.name
+        })),
+        remainingBusinessAssociations: remainingBusinessCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Delete staff member error:', error);
+    next(error);
   }
+}
 
   // Get staff statistics
   async getStaffStats(req, res, next) {

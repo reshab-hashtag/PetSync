@@ -21,8 +21,6 @@ class AuthController {
       businessData // Optional business information
     } = req.body;
 
-    console.log('Registering user with role:', role);
-
     // Only the 'business_admin' role can be registered, and only by 'super_admin'
     if (role !== 'business_admin') {
       return res.status(403).json({

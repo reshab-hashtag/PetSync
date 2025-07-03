@@ -427,7 +427,6 @@ async createBusiness(req, res, next) {
 
   // Enhanced version of getAllStaffMembers with business details
 async getAllStaffMembersEnhanced(req, res, next) {
-  console.log("getAllStaffMembersEnhanced called");
   try {
     // 1) Only BUSINESS_ADMIN and SUPER_ADMIN may call this
     if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(req.user.role)) {

@@ -589,7 +589,6 @@ class DashboardController {
 
    // Business Admin Dashboard
   async getBusinessAdminDashboard(businessId, dateFilter) {
-  console.log('Fetching business admin dashboard for business:', businessId, 'with date filter:', dateFilter);
   const businessFilter = { business: businessId, ...dateFilter };
 
   const [

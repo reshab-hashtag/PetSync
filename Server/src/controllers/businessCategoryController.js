@@ -264,7 +264,6 @@ async createCategory(req, res, next) {
 
   // Delete category (Super Admin only)
   async deleteCategory(req, res, next) {
-  console.log('Delete category request received');
   try {
     const { id } = req.params;
     

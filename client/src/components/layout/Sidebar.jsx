@@ -34,25 +34,25 @@ const Sidebar = () => {
       name: 'Appointments',
       href: '/appointments',
       icon: CalendarIcon,
-      roles: ['super_admin', 'business_admin', 'staff']
+      roles: ['business_admin', 'staff']
     },
     {
       name: 'Clients',
       href: '/clients',
       icon: UserGroupIcon,
-      roles: ['super_admin', 'business_admin', 'staff']
+      roles: ['business_admin', 'staff']
     },
     {
       name: 'Pets',
       href: '/pets',
       icon: HeartIcon,
-      roles: ['super_admin', 'business_admin', 'staff']
+      roles: ['business_admin', 'staff']
     },
     {
       name: 'Calendar',
       href: '/calendar',
       icon: CalendarDaysIcon,
-      roles: ['super_admin', 'business_admin', 'staff']
+      roles: ['business_admin', 'staff']
     },
     {
       name: 'Staff Management',
@@ -70,7 +70,7 @@ const Sidebar = () => {
       name: 'Billing',
       href: '/billing',
       icon: CurrencyDollarIcon,
-      roles: ['super_admin', 'business_admin']
+      roles: ['business_admin']
     },
     {
       name: 'Settings',
