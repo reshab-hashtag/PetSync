@@ -209,136 +209,392 @@ class AdminController {
     }
   }
 
+
+
+
+
+  // Create staff and client accounts
+ async createUser(req, res, next) {
+  try {
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      phone, 
+      role,
+      address,
+      emergencyContact
+    } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: firstName, lastName, email, password, and role are required'
+      });
+    }
+
+    // Validate role permissions
+    const allowedRoles = ['client', 'staff'];
+    if (req.user.role === 'business_admin') {
+      // Business admin can only create pet_owner and staff
+      if (!allowedRoles.includes(role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Business admin can only create pet_owner and staff users'
+        });
+      }
+    } else if (req.user.role === 'super_admin') {
+      // Super admin can create any role
+      allowedRoles.push('business_admin');
+    } else {
+      return res.status(403).json({
+        success: false,
+        message: 'Insufficient permissions to create users'
+      });
+    }
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`
+      });
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ 'profile.email': normalizedEmail });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Get the correct user ID - handle both possible structures
+    const creatorId = req.user._id || req.user.userData?.id;
+    
+    if (!creatorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unable to identify creating user'
+      });
+    }
+
+    console.log('Creator ID:', creatorId);
+    console.log('User role:', req.user.role);
+
+    // Prepare user data
+    const userData = {
+      role,
+      profile: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: normalizedEmail,
+        phone: phone?.trim(),
+        address: address || {},
+        createdBy: creatorId  // Always set createdBy
+      },
+      auth: {
+        passwordHash: password, 
+        emailVerified: false,
+        phoneVerified: false
+      },
+      settings: {
+        timezone: 'GMT+5:30',
+        notifications: {
+          email: true,
+          sms: false,
+          push: true
+        },
+        language: 'en'
+      }
+    };
+
+    // Handle business association based on creator role
+    if (req.user.role === 'business_admin') {
+      // Add business association for business_admin created users
+      if (req.user.business) {
+        userData.business = req.user.business;
+      }
+    } else if (req.user.role === 'super_admin') {
+      // Super admin creating a business_admin
+      if (role === 'business_admin') {
+        userData.profile.isSelfRegistered = true;
+      }
+    }
+
+    // Add emergency contact if provided
+    if (emergencyContact && emergencyContact.name && emergencyContact.phone) {
+      userData.emergencyContact = {
+        name: emergencyContact.name.trim(),
+        phone: emergencyContact.phone.trim(),
+        relationship: emergencyContact.relationship?.trim() || 'other'
+      };
+    }
+
+    console.log('User data before save:', {
+      role: userData.role,
+      createdBy: userData.profile.createdBy,
+      business: userData.business
+    });
+
+    // Create the user
+    const newUser = new User(userData);
+    await newUser.save();
+
+    console.log('User created successfully with createdBy:', newUser.profile.createdBy);
+
+    // Log the creation with additional context
+    await auditService.log({
+      user: creatorId,
+      action: 'CREATE',
+      resource: 'user',
+      resourceId: newUser._id,
+      metadata: { 
+        createdRole: role,
+        createdBy: req.user.role,
+        businessAdminId: req.user.role === 'business_admin' ? creatorId : null,
+        ipAddress: req.ip, 
+        userAgent: req.get('User-Agent') 
+      }
+    });
+
+    // Populate business info and creator info for response
+    await newUser.populate([
+      { path: 'business', select: 'profile.name profile.contactInfo' },
+      { path: 'profile.createdBy', select: 'profile.firstName profile.lastName profile.email' }
+    ]);
+
+    // Remove password from response
+    const responseData = newUser.toObject();
+    delete responseData.auth.passwordHash;
+
+    res.status(201).json({
+      success: true,
+      message: `${role === 'client' ? 'Client' : 'User'} created successfully`,
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Create user error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errorMessages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: errorMessages
+      });
+    }
+
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists'
+      });
+    }
+
+    next(error);
+  }
+}
   // ===================================
   // USER MANAGEMENT
   // ===================================
 
   // Get all users with filtering and pagination
-  async getUsers(req, res, next) {
-    try {
-      const {
-        role,
-        businessId,
-        isActive,
-        search,
-        page = 1,
-        limit = 20,
-        sortBy = 'createdAt',
-        sortOrder = 'desc'
-      } = req.query;
+async getUsers(req, res, next) {
+  try {
+    const {
+      role,
+      page = 1,
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      includeOwnerBusinesses = false,
+      showMyCreatedUsers = false
+    } = req.query; // ✅ Fixed: Changed from req.user to req.query
 
-      // Build filter
-      const filter = {};
-      if (role) filter.role = role;
-      if (businessId) filter.business = businessId;
-      if (isActive !== undefined) filter.isActive = isActive === 'true';
-      
-      // Search filter
-      if (search) {
-        filter.$or = [
-          { 'profile.firstName': { $regex: search, $options: 'i' } },
-          { 'profile.lastName': { $regex: search, $options: 'i' } },
-          { 'profile.email': { $regex: search, $options: 'i' } }
-        ];
+    console.log('Current user:', req.user.userData);
+    console.log('Query params:', req.query);
+    
+    // Get current user ID from userData
+    const currentUserId = req.user.userData?.id || req.user.userData?._id;
+
+    // Build filter
+    const filter = {};
+    
+    // Add role filter if specified
+    if (role) filter.role = role;
+  
+    // This ensures business_admin only sees users they created
+    if (req.user.userData.role === 'business_admin') {
+      filter['profile.createdBy'] = currentUserId;
+    }
+    
+    // If showMyCreatedUsers is explicitly requested, filter by creator
+    if (showMyCreatedUsers === 'true') {
+      filter['profile.createdBy'] = currentUserId;
+    }
+
+    // Restrict access for non-super-admin users
+    if (req.user.userData.role !== 'super_admin') {
+      // For business_admin, they should only see users they created
+      if (req.user.userData.role === 'business_admin') {
+        filter['profile.createdBy'] = currentUserId;
       }
+    }
 
-      // Restrict access for non-super-admin users
-      if (req.user.role !== ROLES.SUPER_ADMIN) {
-        filter.business = req.user.businessId;
-      }
+    const skip = (page - 1) * limit;
+    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
 
-      const skip = (page - 1) * limit;
-      const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
+    // Enhanced population to include business owner info and creator info
+    const businessPopulation = includeOwnerBusinesses === 'true' 
+      ? 'profile.name owner profile.contactInfo' 
+      : 'profile.name';
 
-      const [users, total] = await Promise.all([
-        User.find(filter)
-          .populate('business', 'profile.name')
-          .populate('pets', 'profile.name profile.species')
-          .select('-auth.passwordHash')
-          .sort(sort)
-          .skip(skip)
-          .limit(parseInt(limit)),
-        User.countDocuments(filter)
-      ]);
+    console.log('Filter being applied:', filter);
 
-      res.json({
-        success: true,
-        data: {
-          users,
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil(total / limit),
-            total
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .populate('business', businessPopulation)
+        .populate('pets', 'profile.name profile.species')
+        .populate('profile.createdBy', 'profile.firstName profile.lastName profile.email role')
+        .select('-auth.passwordHash')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(filter)
+    ]);
+
+    // Check for owner businesses if requested
+    let usersWithOwnershipInfo = users;
+    if (includeOwnerBusinesses === 'true') {
+      usersWithOwnershipInfo = await Promise.all(
+        users.map(async (user) => {
+          const userObj = user.toObject();
+          
+          // Find businesses owned by this user
+          const ownedBusinesses = await Business.find({ owner: user._id })
+            .select('profile.name profile.description createdAt isActive')
+            .lean();
+          
+          // Check if user is owner of their current business
+          const isOwnerOfCurrentBusiness = user.business && 
+            user.business.owner && 
+            user.business.owner.toString() === user._id.toString();
+          
+          return {
+            ...userObj,
+            ownershipInfo: {
+              isOwnerOfCurrentBusiness,
+              ownedBusinesses,
+              totalOwnedBusinesses: ownedBusinesses.length
+            }
+          };
+        })
+      );
+    }
+
+    // Add summary of created users for business admins
+    const createdUsersCount = await User.countDocuments({
+      'profile.createdBy': currentUserId
+    });
+
+    res.json({
+      success: true,
+      data: {
+        users: usersWithOwnershipInfo,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / limit),
+          total
+        },
+        summary: {
+          totalCreatedByCurrentUser: createdUsersCount,
+          currentUserRole: req.user.userData.role,
+          currentUserId: currentUserId,
+          filtersApplied: {
+            role: role || null,
+            createdBy: currentUserId,
+            showMyCreatedUsers: showMyCreatedUsers === 'true',
+            // search: search || null
           }
         }
-      });
-    } catch (error) {
-      next(error);
-    }
+      }
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    next(error);
   }
-
+}
   // Create new user
-  async createUser(req, res, next) {
-    try {
-      const userData = req.body;
+  // async createUser(req, res, next) {
+  //   try {
+  //     const userData = req.body;
 
-      // Check if user already exists
-      const existingUser = await User.findOne({ 'profile.email': userData.profile.email });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'User with this email already exists'
-        });
-      }
+  //     // Check if user already exists
+  //     const existingUser = await User.findOne({ 'profile.email': userData.profile.email });
+  //     if (existingUser) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: 'User with this email already exists'
+  //       });
+  //     }
 
-      // For non-super-admin, restrict to their business
-      if (req.user.role !== ROLES.SUPER_ADMIN) {
-        userData.business = req.user.businessId;
-      }
+  //     // For non-super-admin, restrict to their business
+  //     if (req.user.role !== ROLES.SUPER_ADMIN) {
+  //       userData.business = req.user.businessId;
+  //     }
 
-      const user = new User(userData);
-      await user.save();
+  //     const user = new User(userData);
+  //     await user.save();
 
-      // Add user to business staff if applicable
-      if (user.business && [ROLES.BUSINESS_ADMIN, ROLES.STAFF].includes(user.role)) {
-        await Business.findByIdAndUpdate(user.business, {
-          $push: { staff: user._id }
-        });
-      }
+  //     // Add user to business staff if applicable
+  //     if (user.business && [ROLES.BUSINESS_ADMIN, ROLES.STAFF].includes(user.role)) {
+  //       await Business.findByIdAndUpdate(user.business, {
+  //         $push: { staff: user._id }
+  //       });
+  //     }
 
-      // Send welcome email
-      try {
-        await sendEmail({
-          to: user.profile.email,
-          subject: 'Welcome to PetSync',
-          template: 'user-welcome',
-          data: {
-            firstName: user.profile.firstName,
-            role: user.role
-          }
-        });
-      } catch (emailError) {
-        console.error('Failed to send welcome email:', emailError);
-      }
+  //     // Send welcome email
+  //     try {
+  //       await sendEmail({
+  //         to: user.profile.email,
+  //         subject: 'Welcome to PetSync',
+  //         template: 'user-welcome',
+  //         data: {
+  //           firstName: user.profile.firstName,
+  //           role: user.role
+  //         }
+  //       });
+  //     } catch (emailError) {
+  //       console.error('Failed to send welcome email:', emailError);
+  //     }
 
-      // Log creation
-      await auditService.log({
-        user: req.user.userId,
-        business: user.business,
-        action: 'CREATE',
-        resource: 'user',
-        resourceId: user._id
-      });
+  //     // Log creation
+  //     await auditService.log({
+  //       user: req.user.userId,
+  //       business: user.business,
+  //       action: 'CREATE',
+  //       resource: 'user',
+  //       resourceId: user._id
+  //     });
 
-      res.status(201).json({
-        success: true,
-        message: 'User created successfully',
-        data: { user }
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  //     res.status(201).json({
+  //       success: true,
+  //       message: 'User created successfully',
+  //       data: { user }
+  //     });
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
 
   // Update user
   async updateUser(req, res, next) {

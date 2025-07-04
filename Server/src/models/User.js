@@ -14,6 +14,11 @@ const UserSchema = new mongoose.Schema({
     lastName: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     phone: { type: String, trim: true },
+    createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User',
+    index: true
+  },
     avatar: String,
     address: {
       street: String,

@@ -26,8 +26,9 @@ router.get('/users',
 
 router.post('/users', 
   authenticate, 
-  requireRole([ROLES.SUPER_ADMIN, ROLES.BUSINESS_ADMIN]), 
-  adminController.createUser
+  requireRole([ROLES.BUSINESS_ADMIN]), 
+  adminController.createUser,
+()=>{console.log("User created successfully")}
 );
 
 // router.get('/users/:id', 

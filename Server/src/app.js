@@ -33,6 +33,7 @@ const staffRoutes = require('./routes/staff');
 // const invoiceRoutes = require('./routes/invoices');
 // const messageRoutes = require('./routes/messages');
 // const documentRoutes = require('./routes/documents');
+const clientRoutes = require('./routes/Client');
 const businessCategoryRoutes = require('./routes/businessCategory');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
@@ -113,6 +114,7 @@ app.use('/api/business-categories', businessCategoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/client', clientRoutes);
 // app.use('/api/payments', paymentRoutes);
 
 // Static file serving

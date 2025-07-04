@@ -94,4 +94,15 @@ export const businessCategoryAPI = {
   updateDisplayOrder: (categories) => api.put('/business-categories/bulk/display-order', { categories }),
 };
 
+
+// Client API
+export const clientAPI = {
+  registerClient: (clientData) => api.post('/admin/users', clientData),
+  getClients: (params) => api.get('/admin/users', { params: { ...params, role: 'client' } }),
+  getClient: (id) => api.get(`/admin/users/${id}`),
+  updateClient: (id, data) => api.put(`/admin/users/${id}`, data),
+  deleteClient: (id) => api.delete(`/admin/users/${id}`),
+  toggleClientStatus: (id) => api.patch(`/admin/users/${id}/status`),
+};
+
 export default api;

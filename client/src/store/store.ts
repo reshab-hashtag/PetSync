@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import dashboardReducer from './slices/dashboardSlice';
 import staffReducer from './slices/staffSlice';
 import businessReducer from './slices/businessSlice';
+import clientReducer from './slices/clientSlice';
 import businessCategoryReducer from './slices/businessCategorySlice';
 import uiReducer from './slices/uiSlice';
 
@@ -13,6 +14,7 @@ export const store = configureStore({
     staff: staffReducer,
     business: businessReducer,
     businessCategories: businessCategoryReducer,
+    client: clientReducer,
     ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>
