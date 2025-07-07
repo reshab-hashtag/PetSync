@@ -33,7 +33,7 @@ router.get('/search/businesses', async (req, res) => {
   console.log('Search query:', req.query);
   try {
     const {
-      q = '',
+      q ,
       category = '',
       latitude,
       longitude,
@@ -47,17 +47,23 @@ router.get('/search/businesses', async (req, res) => {
       isActive: true
     };
 
-    // Text search
-    if (q) {
-      searchQuery.$or = [
-        { 'profile.name': { $regex: q, $options: 'i' } },
-        { 'profile.companyName': { $regex: q, $options: 'i' } },
-        { 'profile.description': { $regex: q, $options: 'i' } },
-        { 'services.name': { $regex: q, $options: 'i' } },
-        { 'services.description': { $regex: q, $options: 'i' } }
-      ];
-    }
+ const matchingCategories = await BusinessCategory
+  .find({ name: { $regex: q, $options: 'i' } })
+  .select('_id');
 
+const categoryIds = matchingCategories.map(c => c._id);
+
+if (q) {
+  searchQuery.$or = [
+    { 'profile.name':        { $regex: q, $options: 'i' } },
+    { 'profile.companyName': { $regex: q, $options: 'i' } },
+    { 'profile.description': { $regex: q, $options: 'i' } },
+    // now filter by any of those matching category IDs:
+    { 'profile.category':    { $in: categoryIds } },
+    { 'services.name':       { $regex: q, $options: 'i' } },
+    { 'services.description':{ $regex: q, $options: 'i' } },
+  ];
+}
     // Category filter - handle both ObjectId and string
     if (category) {
       try {
