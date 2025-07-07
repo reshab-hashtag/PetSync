@@ -30,9 +30,11 @@ const LandingDashboard = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [locationPermission, setLocationPermission] = useState('prompt'); // 'prompt', 'granted', 'denied'
+  const [locationPermission, setLocationPermission] = useState('prompt');
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false); // New state to track if user has searched
+  const [pendingContactBusiness, setPendingContactBusiness] = useState(null); // Store business for pending contact
 
   // Default categories as fallback
   const defaultCategories = [
@@ -89,14 +91,12 @@ const LandingDashboard = () => {
     }
 
     try {
-      // Check if permission is already granted
       const permission = await navigator.permissions.query({ name: 'geolocation' });
       setLocationPermission(permission.state);
       
       if (permission.state === 'granted') {
         getCurrentLocation();
       } else if (permission.state === 'prompt') {
-        // Show location modal on first search attempt
         setShowLocationModal(true);
       }
     } catch (error) {
@@ -109,7 +109,7 @@ const LandingDashboard = () => {
     const options = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 600000 // 10 minutes
+      maximumAge: 600000
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -167,7 +167,6 @@ const LandingDashboard = () => {
       if (response.data?.success && response.data.data?.length > 0) {
         setCategories(response.data.data);
       } else {
-        // Use default categories if API fails
         setCategories(defaultCategories);
       }
     } catch (error) {
@@ -183,26 +182,34 @@ const LandingDashboard = () => {
     setSelectedCategory(category);
     setSearchQuery(category.name);
     
-    // Check if we need to ask for location permission
+    // Check for phone number first
+    if (!phoneNumber.trim()) {
+      setShowPhoneModal(true);
+      return;
+    }
+    
+    // Check location permission
     if (locationPermission === 'prompt' && !showLocationModal) {
       setShowLocationModal(true);
       return;
     }
     
-    await searchBusinesses(category.name);
+    await searchBusinesses(category.name, category);
   };
 
-  const searchBusinesses = async (query) => {
+  const searchBusinesses = async (query, category = null) => {
     try {
       setLoading(true);
+      setHasSearched(true); // Mark that user has searched
+      
       const params = {
         q: query,
-        category: selectedCategory?._id || '',
+        category: (category || selectedCategory)?._id || '',
         limit: 12,
-        radius: 50 // 50km radius
+        radius: 50
       };
 
-      // Use user's location if available, otherwise use default location
+      // Use user's location if available
       if (userLocation) {
         params.latitude = userLocation.latitude;
         params.longitude = userLocation.longitude;
@@ -240,13 +247,19 @@ const LandingDashboard = () => {
       return;
     }
     
-    // Check if we need to ask for location permission first
+    // Check for phone number first
+    if (!phoneNumber.trim()) {
+      setShowPhoneModal(true);
+      return;
+    }
+    
+    // Check location permission
     if (locationPermission === 'prompt' && !showLocationModal) {
       setShowLocationModal(true);
       return;
     }
     
-    setShowPhoneModal(true);
+    await searchBusinesses(searchQuery);
   };
 
   const handlePhoneSubmit = async (e) => {
@@ -265,7 +278,18 @@ const LandingDashboard = () => {
     }
     
     setShowPhoneModal(false);
-    await searchBusinesses(searchQuery);
+    
+    // If there's a pending contact, handle it
+    if (pendingContactBusiness) {
+      await handleContactBusiness(pendingContactBusiness);
+      setPendingContactBusiness(null);
+      return;
+    }
+    
+    // If there's a selected category and query, search
+    if (selectedCategory && searchQuery) {
+      await searchBusinesses(searchQuery);
+    }
   };
 
   const handleLogin = () => {
@@ -273,6 +297,13 @@ const LandingDashboard = () => {
   };
 
   const handleContactBusiness = async (business) => {
+    // Check if phone number is provided
+    if (!phoneNumber.trim()) {
+      setPendingContactBusiness(business);
+      setShowPhoneModal(true);
+      return;
+    }
+
     try {
       const inquiryData = {
         businessId: business._id,
@@ -419,69 +450,33 @@ const LandingDashboard = () => {
             
             {/* Search Bar */}
             <div className="mt-10 max-w-2xl mx-auto">
-              <div className="relative">
+              <form onSubmit={handleSearch}>
                 <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search for pet services, grooming, vet clinics..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-lg"
-                  />
-                </div>
-                <button
-                  onClick={handleSearch}
-                  className="absolute right-2 top-2 bottom-2 px-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-semibold"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Categories */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h3 className="text-3xl font-bold text-gray-900">Popular Services</h3>
-            <p className="mt-4 text-lg text-gray-600">Browse by category to find exactly what you need</p>
-          </div>
-          
-          {categoriesLoading ? (
-            <div className="flex justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {categories.map((category) => {
-                const IconComponent = iconMap[category.icon] || SparklesIcon;
-                return (
-                  <div
-                    key={category._id}
-                    onClick={() => handleCategoryClick(category)}
-                    className="group cursor-pointer bg-white rounded-2xl p-6 border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-                  >
-                    <div 
-                      className="rounded-xl p-4 w-16 h-16 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200"
-                      style={{ backgroundColor: category.color || '#3B82F6' }}
-                    >
-                      <IconComponent className="h-8 w-8 text-white" />
-                    </div>
-                    <h4 className="text-xl font-semibold text-gray-900 mb-2">{category.name}</h4>
-                    <p className="text-gray-600">{category.description}</p>
+                  <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-6 w-6 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search for pet services, grooming, vet clinics..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-lg"
+                    />
                   </div>
-                );
-              })}
+                  <button
+                    type="submit"
+                    className="absolute right-2 top-2 bottom-2 px-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-semibold"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
             </div>
-          )}
+          </div>
         </div>
       </section>
 
-      {/* Search Results */}
-      {(loading || businesses.length > 0) && (
+      {/* Search Results - Now positioned right after Hero section */}
+      {hasSearched && (loading || businesses.length > 0) && (
         <section className="py-16 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
@@ -511,6 +506,46 @@ const LandingDashboard = () => {
                 </div>
                 <h4 className="text-xl font-semibold text-gray-900 mb-2">No Results Found</h4>
                 <p className="text-gray-600">Try searching with different keywords or browse our categories.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Categories - Now positioned after search results or after hero if no search */}
+      {!hasSearched && (
+        <section className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold text-gray-900">Popular Services</h3>
+              <p className="mt-4 text-lg text-gray-600">Browse by category to find exactly what you need</p>
+            </div>
+            
+            {categoriesLoading ? (
+              <div className="flex justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {categories.map((category) => {
+                  const IconComponent = iconMap[category.icon] || SparklesIcon;
+                  return (
+                    <div
+                      key={category._id}
+                      onClick={() => handleCategoryClick(category)}
+                      className="group cursor-pointer bg-white rounded-2xl p-6 border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
+                    >
+                      <div 
+                        className="rounded-xl p-4 w-16 h-16 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200"
+                        style={{ backgroundColor: category.color || '#3B82F6' }}
+                      >
+                        <IconComponent className="h-8 w-8 text-white" />
+                      </div>
+                      <h4 className="text-xl font-semibold text-gray-900 mb-2">{category.name}</h4>
+                      <p className="text-gray-600">{category.description}</p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -581,41 +616,51 @@ const LandingDashboard = () => {
             </div>
             
             <p className="text-gray-600 mb-6">
-              We need your phone number to show you personalized results and help businesses contact you.
+              {pendingContactBusiness 
+                ? 'Please provide your phone number to contact this business.'
+                : 'We need your phone number to show you personalized results and help businesses contact you.'
+              }
             </p>
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+91 12345 67890"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+            <form onSubmit={handlePhoneSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+91 12345 67890"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPhoneModal(false);
+                      setPendingContactBusiness(null);
+                    }}
+                    className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Continue
+                  </button>
                 </div>
               </div>
-              
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setShowPhoneModal(false)}
-                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePhoneSubmit}
-                  className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
