@@ -4,6 +4,7 @@ const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 const { validateUserRegistration, validateUserLogin } = require('../middleware/validation');
 const { authLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
+const { handleUploadError, uploadAvatar } = require('../middleware/upload');
 
 // Register
 router.post('/register', authLimiter, validateUserRegistration,authenticate, authController.register);
@@ -13,6 +14,19 @@ router.post('/login', authLimiter, validateUserLogin, authController.login);
 
 // Get profile
 router.get('/profile', authenticate, authController.getProfile);
+
+// Avatar upload routes
+router.post('/profile/avatar', 
+  authenticate, 
+  uploadAvatar.single('avatar'), 
+  handleUploadError,
+  authController.uploadAvatar
+);
+// Remove avatar
+router.delete('/profile/avatar', 
+  authenticate, 
+  authController.removeAvatar
+);
 
 // Update profile
 router.put('/profile', authenticate, authController.updateProfile);

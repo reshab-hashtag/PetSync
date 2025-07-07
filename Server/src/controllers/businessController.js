@@ -580,8 +580,8 @@ async addStaff(req, res, next) {
       });
     }
 
-    // Get the business
-    const business = await Business.findById(businessId);
+    // Get the business with category populated
+    const business = await Business.findById(businessId).populate('profile.category');
     if (!business) {
       return res.status(404).json({
         success: false,
@@ -643,9 +643,27 @@ async addStaff(req, res, next) {
       });
     }
 
-    // Add staff to business
-    business.staff.push(staffUser._id);
-    await business.save();
+    // Store the original business data for comparison
+    const originalStaffCount = business.staff.length;
+
+    // Add staff to business using $addToSet to avoid duplicates
+    const updateResult = await Business.findByIdAndUpdate(
+      businessId,
+      { 
+        $addToSet: { staff: staffUser._id } // Use $addToSet to avoid duplicates
+      },
+      { 
+        new: true,
+        runValidators: false // Skip validation since we're only updating staff array
+      }
+    );
+
+    if (!updateResult) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to add staff to business'
+      });
+    }
 
     // Update user's business association and role
     // Handle multiple business associations
@@ -654,23 +672,32 @@ async addStaff(req, res, next) {
     }
     
     // Add business if not already associated
-    if (!staffUser.business.includes(businessId)) {
+    if (!staffUser.business.some(bId => bId === businessId)) {
       staffUser.business.push(businessId);
     }
     
+    // Update role and createdBy field
     staffUser.role = role;
+    staffUser.profile.createdBy = userId; // Track who added this staff member
     await staffUser.save();
 
-    // Audit log
+    // Audit log with enhanced details
     await auditService.log({
       user: userId,
       action: 'ADD_STAFF',
       resource: 'business',
       resourceId: business._id,
-      metadata: {
-        staffUserId: staffUser._id,
+      details: {
+        staffName: `${staffUser.profile.firstName} ${staffUser.profile.lastName}`,
         staffEmail: email,
         staffRole: role,
+        addedBy: userId,
+        businessName: business.profile.name,
+        previousStaffCount: originalStaffCount,
+        newStaffCount: updateResult.staff.length
+      },
+      metadata: {
+        staffUserId: staffUser._id,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
       }
@@ -686,13 +713,37 @@ async addStaff(req, res, next) {
           email: staffUser.profile.email,
           role: staffUser.role,
           businessId: businessId,
-          businessName: business.profile.name
+          businessName: business.profile.name,
+          addedBy: {
+            id: userId,
+            name: req.user.firstName ? `${req.user.firstName} ${req.user.lastName}` : 'Admin'
+          },
+          createdBy: userId
+        },
+        business: {
+          id: business._id,
+          name: business.profile.name,
+          totalStaff: updateResult.staff.length
         }
       }
     });
 
   } catch (error) {
     console.error('Add staff error:', error);
+    
+    // Handle specific validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error occurred',
+        details: error.message,
+        errors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
+    
     next(error);
   }
 }

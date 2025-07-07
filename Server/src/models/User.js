@@ -18,7 +18,7 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User',
     index: true
-  },
+    },
     avatar: String,
     address: {
       street: String,

@@ -45,7 +45,7 @@ const BusinessAdminDashboard = ({ quickStats, overview, UserGroupIcon, CalendarI
                 />
                 <StatCard
                     title="Total Businesses"
-                    value={overview?.businessCount || overview?.businesses?.length || 0}
+                    value={ overview?.businesses?.length || 0}
                     icon={ChartBarIcon}
                     color="indigo"
                 />

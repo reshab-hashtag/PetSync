@@ -33,7 +33,6 @@ const Dashboard = () => {
             </div>
         );
     }
-    console.log(overview)
 
     // Render different dashboard based on user role
     const renderDashboardByRole = () => {

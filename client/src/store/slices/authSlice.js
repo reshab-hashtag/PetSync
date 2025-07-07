@@ -37,6 +37,36 @@ export const loginUser = createAsyncThunk(
 
 
 
+
+// Upload avatar action
+export const uploadAvatar = createAsyncThunk(
+  'auth/uploadAvatar',
+  async (file, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.uploadAvatar(file);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// Remove avatar action
+export const removeAvatar = createAsyncThunk(
+  'auth/removeAvatar',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.removeAvatar();
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+
+
+
 // New action for business admin registration
 export const registerBusinessAdmin = createAsyncThunk(
   'auth/register',
@@ -136,6 +166,37 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
         state.token = null;
+        state.error = action.payload;
+      })
+       // Upload Avatar
+      .addCase(uploadAvatar.pending, (state) => {
+        state.avatarUploading = true;
+        state.error = null;
+      })
+      .addCase(uploadAvatar.fulfilled, (state, action) => {
+        state.avatarUploading = false;
+        if (state.user) {
+          state.user.profile.avatar = action.payload.avatarUrl;
+        }
+      })
+      .addCase(uploadAvatar.rejected, (state, action) => {
+        state.avatarUploading = false;
+        state.error = action.payload;
+      })
+
+      // Remove Avatar
+      .addCase(removeAvatar.pending, (state) => {
+        state.avatarUploading = true;
+        state.error = null;
+      })
+      .addCase(removeAvatar.fulfilled, (state, action) => {
+        state.avatarUploading = false;
+        if (state.user) {
+          state.user.profile.avatar = null;
+        }
+      })
+      .addCase(removeAvatar.rejected, (state, action) => {
+        state.avatarUploading = false;
         state.error = action.payload;
       })
       // // Register

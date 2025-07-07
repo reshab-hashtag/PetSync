@@ -24,7 +24,6 @@ export const getClients = createAsyncThunk(
   async (params = {}, { rejectWithValue }) => {
     try {
       const response = await clientAPI.getClients(params);
-      console.log('getClients response:', response.data); // Debug log
       return response.data;
     } catch (error) {
       console.error('getClients error:', error); // Debug log

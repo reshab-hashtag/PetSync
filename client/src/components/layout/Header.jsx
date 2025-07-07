@@ -25,10 +25,42 @@ const Header = () => {
   };
 
   const userNavigation = [
-    { name: 'Your Profile', icon: UserCircleIcon, onClick: () => navigate('/profile') },
-    { name: 'Settings', icon: CogIcon, onClick: () => navigate('/settings') },
+    { name: 'Your Profile', icon: UserCircleIcon, onClick: () => navigate('/dashboard/profile') },
+    { name: 'Settings', icon: CogIcon, onClick: () => navigate('/dashboard/settings') },
     { name: 'Sign out', icon: ArrowRightOnRectangleIcon, onClick: handleLogout },
   ];
+
+  // Avatar display component
+  const UserAvatar = ({ size = 'h-8 w-8' }) => {
+    const avatarUrl = user?.profile?.avatar;
+    const firstName = user?.profile?.firstName;
+    const lastName = user?.profile?.lastName;
+
+    if (avatarUrl) {
+      return (
+        <img 
+          src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${avatarUrl}`} 
+          alt="Profile" 
+          className={`${size} rounded-full object-cover`}
+          onError={(e) => {
+            // Fallback to initials if image fails to load
+            e.target.style.display = 'none';
+            const fallback = e.target.nextSibling;
+            if (fallback) fallback.style.display = 'flex';
+          }}
+        />
+      );
+    }
+
+    // Fallback to initials
+    return (
+      <div className={`${size} rounded-full bg-primary-600 flex items-center justify-center avatar-fallback`}>
+        <span className="text-sm font-medium text-white">
+          {firstName?.[0]}{lastName?.[0] || user?.fullName?.[0] || 'U'}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="sticky top-0 z-40 lg:mx-auto lg:max-w-7xl lg:px-8">
@@ -50,7 +82,7 @@ const Header = () => {
               Welcome back, {user?.profile?.firstName || user?.fullName || 'User'}!
             </h1>
           </div>
-          
+
           <div className="flex items-center gap-x-4 lg:gap-x-6">
             {/* Notifications */}
             <button
@@ -65,20 +97,42 @@ const Header = () => {
 
             {/* Profile dropdown */}
             <Menu as="div" className="relative">
-              <Menu.Button className="-m-1.5 flex items-center p-1.5">
+              <Menu.Button className="-m-1.5 flex items-center p-1.5 hover:bg-gray-50 rounded-lg transition-colors">
                 <span className="sr-only">Open user menu</span>
-                <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center">
-                  <span className="text-sm font-medium text-white">
-                    {user?.profile?.firstName?.[0] || user?.fullName?.[0] || 'U'}
-                  </span>
+                
+                {/* Avatar with fallback */}
+                <div className="relative">
+                  {user?.profile?.avatar ? (
+                    <>
+                      <img 
+                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${user.profile.avatar}`} 
+                        alt="Profile" 
+                        className="h-8 w-8 rounded-full object-cover"
+                        onError={(e) => {
+                          // Hide broken image and show fallback
+                          e.target.style.display = 'none';
+                          const fallback = e.target.nextSibling;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                    </>
+                  ) : (
+                    // Show initials when no avatar
+                    <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center">
+                      <span className="text-sm font-medium text-white">
+                        {user?.profile?.firstName?.[0]}{user?.profile?.lastName?.[0] || user?.fullName?.[0] || 'U'}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
                 <span className="hidden lg:flex lg:items-center">
                   <span className="ml-4 text-sm font-semibold leading-6 text-gray-900">
                     {user?.profile?.firstName} {user?.profile?.lastName}
                   </span>
                 </span>
               </Menu.Button>
-              
+
               <Transition
                 as={Fragment}
                 enter="transition ease-out duration-100"
@@ -94,9 +148,8 @@ const Header = () => {
                       {({ active }) => (
                         <button
                           onClick={item.onClick}
-                          className={`${
-                            active ? 'bg-gray-50' : ''
-                          } flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900`}
+                          className={`${active ? 'bg-gray-50' : ''
+                            } flex w-full items-center px-3 py-1 text-sm leading-6 text-gray-900`}
                         >
                           <item.icon className="mr-2 h-4 w-4" />
                           {item.name}

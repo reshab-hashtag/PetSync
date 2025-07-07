@@ -1,10 +1,10 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 const { sendEmail } = require('../services/emailService');
 const auditService = require('../services/auditService');
-const { ROLES } = require('../config/constants');
 const Business = require('../models/Business');
 
 class AuthController {
@@ -371,8 +371,8 @@ class AuthController {
         Object.assign(user.profile, updates.profile);
       }
 
-      // 2) pick up flat profile fields too
-      ['firstName', 'lastName', 'email', 'phone'].forEach(field => {
+      // 2) pick up flat profile fields too (including avatar)
+      ['firstName', 'lastName', 'email', 'phone', 'avatar'].forEach(field => {
         if (updates[field] !== undefined) {
           user.profile[field] = updates[field];
         }
@@ -384,7 +384,13 @@ class AuthController {
         Object.assign(user.profile.address, updates.address);
       }
 
-      // 4) merge settings if provided
+      // 4) emergency contact is an object on profile — merge rather than overwrite
+      if (updates.emergencyContact && typeof updates.emergencyContact === 'object') {
+        user.profile.emergencyContact = user.profile.emergencyContact || {};
+        Object.assign(user.profile.emergencyContact, updates.emergencyContact);
+      }
+
+      // 5) merge settings if provided
       if (updates.settings && typeof updates.settings === 'object') {
         Object.assign(user.settings, updates.settings);
       }
@@ -392,21 +398,175 @@ class AuthController {
       // save & audit
       await user.save();
       await auditService.log({
-        user:       req.user.userId,
-        action:     'UPDATE',
-        resource:   'user',
+        user: req.user.userId,
+        action: 'UPDATE',
+        resource: 'user',
         resourceId: user._id,
         details: {
           before: originalData,
-          after:  user.toObject()
+          after: user.toObject()
         }
       });
+
+      // Populate and return updated user
+      const updatedUser = await User.findById(user._id)
+        .populate('business')
+        .populate('pets');
 
       return res.json({
         success: true,
         message: 'Profile updated successfully',
-        data:    { user }
+        data: { user: updatedUser }
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // NEW: Upload avatar
+  async uploadAvatar(req, res, next) {
+    console.log('Uploading avatar for user:', req.user.userId);
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded'
+        });
+      }
+
+      const user = await User.findById(req.user.userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Store old avatar path for cleanup
+      const oldAvatarPath = user.profile.avatar;
+
+      // Update user avatar path
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      user.profile.avatar = avatarUrl;
+      
+      await user.save();
+
+      // Clean up old avatar file
+      if (oldAvatarPath) {
+        const oldFilePath = path.join(__dirname, '../../', oldAvatarPath);
+        if (fs.existsSync(oldFilePath)) {
+          try {
+            fs.unlinkSync(oldFilePath);
+          } catch (cleanupError) {
+            console.error('Failed to cleanup old avatar:', cleanupError);
+          }
+        }
+      }
+
+      // Audit log
+      await auditService.log({
+        user: req.user.userId,
+        action: 'UPDATE',
+        resource: 'user_avatar',
+        resourceId: user._id,
+        details: {
+          before: { avatar: oldAvatarPath },
+          after: { avatar: avatarUrl }
+        },
+        metadata: { 
+          ipAddress: req.ip, 
+          userAgent: req.get('User-Agent'),
+          fileName: req.file.filename,
+          fileSize: req.file.size
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Avatar uploaded successfully',
+        data: {
+          avatarUrl: avatarUrl,
+          user: {
+            id: user._id,
+            profile: user.profile
+          }
+        }
+      });
+
+    } catch (error) {
+      // Clean up uploaded file if database operation fails
+      if (req.file && fs.existsSync(req.file.path)) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('Failed to cleanup uploaded file:', cleanupError);
+        }
+      }
+      next(error);
+    }
+  }
+
+  // NEW: Remove avatar
+  async removeAvatar(req, res, next) {
+    try {
+      const user = await User.findById(req.user.userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const oldAvatarPath = user.profile.avatar;
+
+      if (!oldAvatarPath) {
+        return res.status(400).json({
+          success: false,
+          message: 'No avatar to remove'
+        });
+      }
+
+      // Remove avatar from user profile
+      user.profile.avatar = null;
+      await user.save();
+
+      // Delete file from filesystem
+      const filePath = path.join(__dirname, '../../', oldAvatarPath);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (cleanupError) {
+          console.error('Failed to delete avatar file:', cleanupError);
+        }
+      }
+
+      // Audit log
+      await auditService.log({
+        user: req.user.userId,
+        action: 'DELETE',
+        resource: 'user_avatar',
+        resourceId: user._id,
+        details: {
+          before: { avatar: oldAvatarPath },
+          after: { avatar: null }
+        },
+        metadata: { 
+          ipAddress: req.ip, 
+          userAgent: req.get('User-Agent')
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Avatar removed successfully',
+        data: {
+          user: {
+            id: user._id,
+            profile: user.profile
+          }
+        }
+      });
+
     } catch (error) {
       next(error);
     }

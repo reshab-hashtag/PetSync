@@ -201,7 +201,6 @@ class ClientController {
   async createClient(req, res, next) {
     try {
       const { userId, role, businessId } = req.user;
-      console.log(req.user);
       const { 
         profile, 
         businessId: assignedBusinessId, 

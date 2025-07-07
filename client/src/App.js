@@ -26,6 +26,7 @@ import BusinessAdminRegistrationForm from './components/auth/BusinessAdminRegist
 import StaffList from './components/staff/StaffList.jsx';
 import BusinessList from './components/business/BusinessList.jsx';
 import SuperAdminCategories from './components/admin/SuperAdminCategories.jsx';
+import LandingDashboard from './pages/LandingDashboard.jsx';
 
 function App() {
   return (
@@ -34,26 +35,27 @@ function App() {
         <div className="App">
           <Routes>
             {/* Public */}
+             <Route path="/" element={<LandingDashboard />} />
+            <Route path="/search" element={<LandingDashboard />} />
             <Route path="/login"   element={<LoginForm />} />
             {/* <Route path="/register" element={<RegisterForm />} /> */}
 
 
 
             {/* Protected – layout + nested dashboard routes */}
-            <Route path="/" element={<DashboardLayout />}>
-              <Route index element={<Navigate to="dashboard" replace                         />} />
-              <Route path="dashboard"    element={<Dashboard                                 />} />
-              <Route path="appointments" element={<AppointmentList                           />} />
-              <Route path="clients"      element={<ClientList                                />} />
-              <Route path="pets"         element={<PetList                                   />} />
-              <Route path="calendar"     element={<Calendar                                  />} />
-              <Route path="billing"      element={<Billing                                   />} />
-              <Route path="profile"      element={<Profile                                   />} />
-              <Route path="settings"     element={<Settings                                  />} />
-               <Route path="businesses" element={<BusinessList                               />} />
-              <Route path="staff" element={<StaffList                                        />} />
-              <Route path="/register-business-admin" element={<BusinessAdminRegistrationForm />} />
-              <Route path="/admin/categories" element={<SuperAdminCategories                 />} />
+             <Route path="/dashboard" element={<DashboardLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="appointments" element={<AppointmentList />} />
+              <Route path="clients" element={<ClientList />} />
+              <Route path="pets" element={<PetList />} />
+              <Route path="calendar" element={<Calendar />} />
+              <Route path="billing" element={<Billing />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="staff" element={<StaffList />} />
+              <Route path="businesses" element={<BusinessList />} />
+              <Route path="register-business-admin" element={<BusinessAdminRegistrationForm />} />
+              <Route path="admin/categories" element={<SuperAdminCategories />} />
               {/* 404 under the dashboard layout */}
               <Route
                 path="*"

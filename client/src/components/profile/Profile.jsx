@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateUserProfile } from '../../store/slices/authSlice';
 import {
-    CameraIcon,
     PencilIcon,
     CalendarIcon,
     MapPinIcon,
@@ -12,13 +11,15 @@ import {
     HeartIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import AvatarUpload from '../../components/common/AvatarUpload';
 
 const Profile = () => {
-    console.log('Profile component rendered');
     const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [notification, setNotification] = useState(null);
+    
     const [formData, setFormData] = useState({
         firstName: user?.profile?.firstName || '',
         lastName: user?.profile?.lastName || '',
@@ -38,6 +39,11 @@ const Profile = () => {
             relationship: user?.profile?.emergencyContact?.relationship || '',
         }
     });
+
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 5000);
+    };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -64,9 +70,9 @@ const Profile = () => {
         try {
             await dispatch(updateUserProfile(formData));
             setIsEditing(false);
-            // Show success message
+            showNotification('Profile updated successfully!');
         } catch (error) {
-            // Show error message
+            showNotification('Failed to update profile. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
@@ -93,6 +99,19 @@ const Profile = () => {
             }
         });
         setIsEditing(false);
+    };
+
+    // Avatar upload callbacks
+    const handleAvatarUploadStart = () => {
+        showNotification('Uploading avatar...', 'info');
+    };
+
+    const handleAvatarUploadComplete = () => {
+        showNotification('Avatar updated successfully!');
+    };
+
+    const handleAvatarUploadError = (error) => {
+        showNotification(error, 'error');
     };
 
     const getRoleDisplayName = (role) => {
@@ -127,6 +146,17 @@ const Profile = () => {
 
     return (
         <div className="space-y-6">
+            {/* Notification */}
+            {notification && (
+                <div className={`p-4 rounded-md ${
+                    notification.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
+                    notification.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+                    'bg-blue-50 text-blue-800 border border-blue-200'
+                }`}>
+                    {notification.message}
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -150,18 +180,14 @@ const Profile = () => {
                     <div className="card">
                         {/* Profile Picture */}
                         <div className="text-center">
-                            <div className="relative inline-block">
-                                <div className="h-32 w-32 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center mx-auto">
-                                    <span className="text-4xl font-bold text-white">
-                                        {user?.profile?.firstName?.[0]}{user?.profile?.lastName?.[0]}
-                                    </span>
-                                </div>
-                                {isEditing && (
-                                    <button className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg border border-gray-200 hover:bg-gray-50">
-                                        <CameraIcon className="h-5 w-5 text-gray-600" />
-                                    </button>
-                                )}
-                            </div>
+                            <AvatarUpload
+                                size="large"
+                                showControls={true}
+                                className="mx-auto"
+                                onUploadStart={handleAvatarUploadStart}
+                                onUploadComplete={handleAvatarUploadComplete}
+                                onUploadError={handleAvatarUploadError}
+                            />
 
                             <div className="mt-4">
                                 <h3 className="text-xl font-bold text-gray-900">
@@ -265,7 +291,7 @@ const Profile = () => {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Email</label>
-                                    <div className="mt-1 flex items-center w-fit mx-auto">
+                                    <div className="mt-1 flex items-center">
                                         <EnvelopeIcon className="h-4 w-4 text-gray-400 mr-2" />
                                         {isEditing ? (
                                             <input
@@ -284,7 +310,7 @@ const Profile = () => {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Phone</label>
-                                    <div className="mt-1 flex items-center w-fit mx-auto">
+                                    <div className="mt-1 flex items-center">
                                         <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
                                         {isEditing ? (
                                             <input
@@ -298,6 +324,47 @@ const Profile = () => {
                                             <span className="text-sm text-gray-900">{user?.profile?.phone || 'Not provided'}</span>
                                         )}
                                     </div>
+                                </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                                    <div className="mt-1 flex items-center">
+                                        <CalendarIcon className="h-4 w-4 text-gray-400 mr-2" />
+                                        {isEditing ? (
+                                            <input
+                                                type="date"
+                                                name="dateOfBirth"
+                                                value={formData.dateOfBirth}
+                                                onChange={handleInputChange}
+                                                className="input-field flex-1"
+                                            />
+                                        ) : (
+                                            <span className="text-sm text-gray-900">
+                                                {user?.profile?.dateOfBirth 
+                                                    ? new Date(user.profile.dateOfBirth).toLocaleDateString()
+                                                    : 'Not provided'
+                                                }
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">Bio</label>
+                                    {isEditing ? (
+                                        <textarea
+                                            name="bio"
+                                            value={formData.bio}
+                                            onChange={handleInputChange}
+                                            rows={3}
+                                            className="input-field mt-1"
+                                            placeholder="Tell us a little about yourself..."
+                                        />
+                                    ) : (
+                                        <div className="mt-1 text-sm text-gray-900">
+                                            {user?.profile?.bio || 'No bio provided'}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -370,6 +437,70 @@ const Profile = () => {
                                             <div className="mt-1 text-sm text-gray-900">{user?.profile?.address?.zipCode || 'Not provided'}</div>
                                         )}
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Emergency Contact Information */}
+                        <div className="card">
+                            <h3 className="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                                <HeartIcon className="h-5 w-5 mr-2" />
+                                Emergency Contact
+                            </h3>
+
+                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Contact Name</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="text"
+                                            name="emergencyContact.name"
+                                            value={formData.emergencyContact.name}
+                                            onChange={handleInputChange}
+                                            className="input-field mt-1"
+                                        />
+                                    ) : (
+                                        <div className="mt-1 text-sm text-gray-900">{user?.profile?.emergencyContact?.name || 'Not provided'}</div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Contact Phone</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="tel"
+                                            name="emergencyContact.phone"
+                                            value={formData.emergencyContact.phone}
+                                            onChange={handleInputChange}
+                                            className="input-field mt-1"
+                                        />
+                                    ) : (
+                                        <div className="mt-1 text-sm text-gray-900">{user?.profile?.emergencyContact?.phone || 'Not provided'}</div>
+                                    )}
+                                </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">Relationship</label>
+                                    {isEditing ? (
+                                        <select
+                                            name="emergencyContact.relationship"
+                                            value={formData.emergencyContact.relationship}
+                                            onChange={handleInputChange}
+                                            className="input-field mt-1"
+                                        >
+                                            <option value="">Select relationship</option>
+                                            <option value="spouse">Spouse</option>
+                                            <option value="parent">Parent</option>
+                                            <option value="child">Child</option>
+                                            <option value="sibling">Sibling</option>
+                                            <option value="friend">Friend</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    ) : (
+                                        <div className="mt-1 text-sm text-gray-900">
+                                            {user?.profile?.emergencyContact?.relationship || 'Not provided'}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

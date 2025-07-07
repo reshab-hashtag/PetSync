@@ -41,6 +41,19 @@ export const authAPI = {
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.post('/auth/change-password', data),
+    // ✅ Upload avatar
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    return api.post('/auth/profile/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // ✅ Remove avatar
+  removeAvatar: () => api.delete('/auth/profile/avatar'),
 };
 
 export const dashboardAPI = {
@@ -103,6 +116,30 @@ export const clientAPI = {
   updateClient: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteClient: (id) => api.delete(`/admin/users/${id}`),
   toggleClientStatus: (id) => api.patch(`/admin/users/${id}/status`),
+};
+
+
+
+// public search API
+export const publicSearchAPI = {
+  // Search businesses by query and location
+  searchBusinesses: (params) => api.get('/public/search/businesses', { params }),
+  
+  // Get business categories for public display
+  getCategories: () => api.get('/public/categories'),
+  
+  // Get business details by ID
+  getBusinessDetails: (id) => api.get(`/public/businesses/${id}`),
+  
+  // Get businesses by category
+  getBusinessesByCategory: (categoryId, params = {}) => 
+    api.get(`/public/categories/${categoryId}/businesses`, { params }),
+  
+  // Submit contact form / inquiry
+  submitInquiry: (data) => api.post('/public/inquiries', data),
+  
+  // Get nearby businesses
+  getNearbyBusinesses: (params) => api.get('/public/businesses/nearby', { params }),
 };
 
 export default api;

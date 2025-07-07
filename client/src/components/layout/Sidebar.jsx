@@ -32,49 +32,49 @@ const Sidebar = () => {
     },
     {
       name: 'Appointments',
-      href: '/appointments',
+      href: '/dashboard/appointments',
       icon: CalendarIcon,
       roles: ['business_admin', 'staff']
     },
     {
       name: 'Clients',
-      href: '/clients',
+      href: '/dashboard/clients',
       icon: UserGroupIcon,
-      roles: ['business_admin', 'staff']
+      roles: ['business_admin']
     },
     {
       name: 'Pets',
-      href: '/pets',
+      href: '/dashboard/pets',
       icon: HeartIcon,
       roles: ['business_admin', 'staff']
     },
     {
       name: 'Calendar',
-      href: '/calendar',
+      href: '/dashboard/calendar',
       icon: CalendarDaysIcon,
       roles: ['business_admin', 'staff']
     },
     {
       name: 'Staff Management',
-      href: '/staff',
+      href: '/dashboard/staff',
       icon: UsersIcon,
       roles: ['business_admin'] // Only business admins can access staff management
     },
     {
       name: 'Business Management', // Add this new navigation item
-      href: '/businesses',
+      href: '/dashboard/businesses',
       icon: BuildingOfficeIcon,
       roles: ['business_admin'] // Only business admins can access business management
     },
     {
       name: 'Billing',
-      href: '/billing',
+      href: '/dashboard/billing',
       icon: CurrencyDollarIcon,
       roles: ['business_admin']
     },
     {
       name: 'Settings',
-      href: '/settings',
+      href: '/dashboard/settings',
       icon: CogIcon,
       roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
     }
@@ -85,7 +85,7 @@ const Sidebar = () => {
   const superAdminNavigation = [
     {
       name: 'Register Business',
-      href: '/register-business-admin',
+      href: '/dashboard/register-business-admin',
       icon: BuildingOfficeIcon,
       current: location.pathname === '/register-business-admin',
       roles: ['super_admin'],
@@ -94,7 +94,7 @@ const Sidebar = () => {
     },
     {
       name: 'Business Categories',
-      href: '/admin/categories',
+      href: '/dashboard/admin/categories',
       icon: Squares2X2Icon,
       current: location.pathname === '/admin/categories',
       roles: ['super_admin'],

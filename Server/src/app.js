@@ -36,6 +36,7 @@ const staffRoutes = require('./routes/staff');
 const clientRoutes = require('./routes/Client');
 const businessCategoryRoutes = require('./routes/businessCategory');
 const dashboardRoutes = require('./routes/dashboard');
+const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/admin');
 // const paymentRoutes = require('./routes/payments');
 
@@ -44,7 +45,7 @@ const socketHandler = require('./socket/socketHandler');
 
 const app = express();
 const server = http.createServer(app);
-app.use(cors({origin: process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000'], credentials: true}));
+// app.use(cors({origin: process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000'], credentials: true}));
 const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000'],
@@ -53,16 +54,16 @@ const io = socketIo(server, {
 });
 
 // Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-}));
+// app.use(helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       styleSrc: ["'self'", "'unsafe-inline'"],
+//       scriptSrc: ["'self'"],
+//       imgSrc: ["'self'", "data:", "https:"],
+//     },
+//   },
+// }));
 
 // Rate limiting
 // const limiter = rateLimit({
@@ -78,17 +79,7 @@ app.use(helmet({
 // app.use('/api/', limiter);
 
 // CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000'];
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
+app.use(cors());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -111,6 +102,7 @@ app.use('/api/pets', petRoutes);
 // app.use('/api/messages', messageRoutes);
 // app.use('/api/documents', documentRoutes);
 app.use('/api/business-categories', businessCategoryRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/admin', adminRoutes);
