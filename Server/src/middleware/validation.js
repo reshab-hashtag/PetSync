@@ -83,6 +83,54 @@ const validateMongoId = (paramName) => [
   handleValidationErrors
 ];
 
+
+
+// OTP request validation
+const validateOTPRequest = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    next();
+  }
+];
+
+// OTP verification validation
+const validateOTPVerification = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  
+  body('otp')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be 6 digits')
+    .isNumeric()
+    .withMessage('OTP must contain only numbers'),
+  
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    next();
+  }
+];
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
@@ -91,5 +139,7 @@ module.exports = {
   validatePet,
   validateInvoice,
   validateMongoId,
-  handleValidationErrors
+  handleValidationErrors,
+  validateOTPRequest,
+  validateOTPVerification
 };

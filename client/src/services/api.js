@@ -142,4 +142,28 @@ export const publicSearchAPI = {
   getNearbyBusinesses: (params) => api.get('/public/businesses/nearby', { params }),
 };
 
+
+
+export const otpAPI = {
+  // Send OTP for login
+  sendLoginOTP: (email) => api.post('/otp/send-login-otp', { email }),
+  
+  // Verify login OTP
+  verifyLoginOTP: (email, otp) => api.post('/otp/verify-login-otp', { email, otp }),
+  
+  // Send OTP for registration
+  sendRegistrationOTP: (email, firstName, lastName) => 
+    api.post('/otp/send-registration-otp', { email, firstName, lastName }),
+  
+  // Send OTP for password reset
+  sendPasswordResetOTP: (email) => api.post('/otp/send-password-reset-otp', { email }),
+  
+  // Verify password reset OTP
+  verifyPasswordResetOTP: (email, otp, newPassword) => 
+    api.post('/otp/verify-password-reset-otp', { email, otp, newPassword }),
+  
+  // Resend OTP
+  resendOTP: (email, type) => api.post('/otp/resend-otp', { email, type })
+};
+
 export default api;
