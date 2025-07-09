@@ -1,4 +1,4 @@
-import { CheckCircleIcon, ExclamationTriangleIcon, HeartIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/outline';
+import { HeartIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/outline';
 import React from 'react';
 
 const Header = ({ locationPermission, userLocation, handleLogin }) => {
