@@ -16,6 +16,8 @@ import { getClients, deleteClient, toggleClientStatus, setFilters } from '../../
 import ClientRegistrationForm from './ClientRegistrationForm';
 import LoadingSpinner from '../common/LoadingSpinner';
 import RoleBasedAccess from '../common/RoleBasedAccess';
+import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
+import toast from 'react-hot-toast';
 
 const ClientList = () => {
   const dispatch = useDispatch();
@@ -31,6 +33,8 @@ const ClientList = () => {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState(filters.search);
   const [selectedStatus, setSelectedStatus] = useState(filters.status);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState(null);
 
   useEffect(() => {
     fetchClients();
@@ -94,6 +98,34 @@ const ClientList = () => {
     fetchClients(); // Refresh the list
   };
 
+
+
+  const handleDeleteClick = (client) => {
+    setClientToDelete(client);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!clientToDelete) return;
+
+    try {
+      await dispatch(deleteClient(clientToDelete._id || clientToDelete.id)).unwrap();
+      toast.success('Client deleted successfully');
+      setShowDeleteModal(false);
+      setClientToDelete(null);
+      fetchClients(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast.error('Failed to delete client');
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setClientToDelete(null);
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -146,8 +178,8 @@ const ClientList = () => {
                 key={status}
                 onClick={() => handleStatusFilter(status)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedStatus === status
-                    ? 'bg-primary-100 text-primary-700 border border-primary-200'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary-100 text-primary-700 border border-primary-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -249,8 +281,8 @@ const ClientList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${client.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                           }`}>
                           {client.isActive ? 'Active' : 'Inactive'}
                         </span>
@@ -287,7 +319,7 @@ const ClientList = () => {
                             </button>
                             <RoleBasedAccess allowedRoles={['business_admin']}>
                               <button
-                                onClick={() => handleDeleteClient(client._id || client.id)}
+                                onClick={() => handleDeleteClick(client)}
                                 className="text-red-600 hover:text-red-900 p-1"
                                 title="Delete client"
                               >
@@ -356,6 +388,22 @@ const ClientList = () => {
           onSuccess={handleRegistrationSuccess}
         />
       )}
+
+
+
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Client"
+        message={
+          clientToDelete
+            ? `Are you sure you want to delete this client? This action cannot be undone and will permanently remove all client data including their pets, appointments, and history.`
+            : 'Are you sure you want to delete this client?'
+        }
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React from 'react';
 import StatCard from '../../components/dashboard/StatCard';
 
-const PetOwnerDashboard = ({ overview, UserGroupIcon, CalendarIcon, ChartBarIcon, CurrencyDollarIcon }) => {
+const ClientDashboard = ({ overview, UserGroupIcon, CalendarIcon, ChartBarIcon, CurrencyDollarIcon }) => {
     return (
         <>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -93,4 +93,4 @@ const PetOwnerDashboard = ({ overview, UserGroupIcon, CalendarIcon, ChartBarIcon
     );
 };
 
-export default PetOwnerDashboard;
+export default ClientDashboard;

@@ -13,7 +13,7 @@ import {
 import SuperAdminDashboard from './Role/super_adminDashboard';
 import BusinessAdminDashboard from './Role/business_adminDashboard';
 import StaffDashboard from './Role/staffDashboard';
-import PetOwnerDashboard from './Role/pet_ownerDashboard';
+import ClientDashboard from './Role/clientDashboard';
 import DefaultDashboard from './Role/defaultDashboard';
 
 const Dashboard = () => {
@@ -63,8 +63,8 @@ const Dashboard = () => {
                     ChartBarIcon={ChartBarIcon}
                     CurrencyDollarIcon={CurrencyDollarIcon}
                 />;
-            case 'pet_owner':
-                return <PetOwnerDashboard
+            case 'client':
+                return <ClientDashboard
                     overview={overview}
                     UserGroupIcon={UserGroupIcon}
                     CalendarIcon={CalendarIcon}
@@ -85,7 +85,7 @@ const Dashboard = () => {
                         Welcome back, {user?.profile?.firstName || 'User'}!
                     </h1>
                     <p className="text-gray-600">
-                        Here's what's happening with your {user?.role === 'pet_owner' ? 'pets' : 'business'} today.
+                        Here's what's happening with your {user?.role === 'client' ? 'pets' : 'business'} today.
                     </p>
                 </div>
             </div>

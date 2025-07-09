@@ -28,7 +28,7 @@ const Sidebar = () => {
       name: 'Dashboard',
       href: '/dashboard',
       icon: HomeIcon,
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
+      roles: ['super_admin', 'business_admin', 'staff', 'client']
     },
     {
       name: 'Appointments',
@@ -76,7 +76,7 @@ const Sidebar = () => {
       name: 'Settings',
       href: '/dashboard/settings',
       icon: CogIcon,
-      roles: ['super_admin', 'business_admin', 'staff', 'pet_owner']
+      roles: ['super_admin', 'business_admin', 'staff', 'client']
     }
   ];
 
@@ -124,7 +124,7 @@ const Sidebar = () => {
     }
 
     // Special handling for pet owners - they see a simplified view
-    if (user.role === 'pet_owner') {
+    if (user.role === 'client') {
       filteredNav = filteredNav.filter(item =>
         ['Dashboard', 'Appointments', 'Pets', 'Billing', 'Messages', 'Settings'].includes(item.name)
       );
@@ -143,7 +143,7 @@ const Sidebar = () => {
         return { color: 'bg-blue-500', label: 'Business Admin', textColor: 'text-blue-600' };
       case 'staff':
         return { color: 'bg-green-500', label: 'Staff', textColor: 'text-green-600' };
-      case 'pet_owner':
+      case 'client':
         return { color: 'bg-purple-500', label: 'Pet Owner', textColor: 'text-purple-600' };
       default:
         return { color: 'bg-gray-500', label: 'User', textColor: 'text-gray-600' };
