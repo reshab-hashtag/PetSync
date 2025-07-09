@@ -115,7 +115,7 @@ export const clientAPI = {
   getClient: (id) => api.get(`/admin/users/${id}`),
   updateClient: (id, data) => api.put(`/admin/users/${id}`, data),
   deleteClient: (id) => api.delete(`/admin/users/${id}`),
-  toggleClientStatus: (id) => api.patch(`/admin/users/${id}/status`),
+  toggleClientStatus: (id, isActive) => api.patch(`/admin/users/${id}/status`,  { isActive }),
 };
 
 

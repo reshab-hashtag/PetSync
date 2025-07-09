@@ -10,14 +10,19 @@ class OTPService {
 
   // Create and send OTP
   async createAndSendOTP(email, type, userData = {}) {
+    console.log('Creating and sending OTP for:', email, 'Type:', type);
+    console.log('UserData:', userData);
+    
     try {
       const normalizedEmail = email.toLowerCase();
       
       // Delete any existing OTPs for this email and type
-      await OTP.deleteMany({ email: normalizedEmail, type });
+      const deleteResult = await OTP.deleteMany({ email: normalizedEmail, type });
+      console.log('Deleted existing OTPs:', deleteResult.deletedCount);
 
       // Generate new OTP
       const otpCode = this.generateOTP();
+      console.log('Generated OTP:', otpCode);
       
       // Create OTP record
       const otpRecord = new OTP({
@@ -27,18 +32,59 @@ class OTPService {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       });
 
-      await otpRecord.save();
+      const savedOtp = await otpRecord.save();
+      console.log('OTP record saved:', savedOtp._id);
 
-      // Send OTP email
-      await this.sendOTPEmail(normalizedEmail, otpCode, type, userData);
+      // Get email template data
+      const emailData = this.getEmailTemplate(type, otpCode, userData);
+      console.log('Email template data:', emailData);
+
+      // Try to send OTP email
+      try {
+        console.log('Attempting to send email...');
+        await sendEmail({
+          to: normalizedEmail,
+          subject: emailData.subject,
+          template: 'otp-verification',
+          data: {
+            otp: otpCode,
+            type,
+            email: normalizedEmail,
+            ...emailData.data,
+            ...userData
+          }
+        });
+        console.log('OTP email sent successfully to:', normalizedEmail);
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
+        
+        // Delete the OTP record if email fails
+        await OTP.deleteOne({ _id: savedOtp._id });
+        console.log('Deleted OTP record due to email failure');
+        
+        // Provide more specific error based on the email error
+        if (emailError.message.includes('authentication') || emailError.message.includes('auth')) {
+          throw new Error('Email service authentication failed. Please check SMTP credentials.');
+        } else if (emailError.message.includes('connection') || emailError.message.includes('connect')) {
+          throw new Error('Unable to connect to email server. Please check SMTP settings.');
+        } else {
+          throw new Error(`Email sending failed: ${emailError.message}`);
+        }
+      }
 
       return {
         success: true,
         message: 'OTP sent successfully',
-        expiresAt: otpRecord.expiresAt
+        expiresAt: savedOtp.expiresAt
       };
     } catch (error) {
       console.error('Failed to create and send OTP:', error);
+      
+      // Don't wrap the error if it's already a descriptive email error
+      if (error.message.includes('Email service') || error.message.includes('email server') || error.message.includes('Email sending failed')) {
+        throw error;
+      }
+      
       throw new Error('Failed to send OTP. Please try again.');
     }
   }
@@ -94,24 +140,6 @@ class OTPService {
       console.error('Failed to verify OTP:', error);
       throw new Error('Failed to verify OTP. Please try again.');
     }
-  }
-
-  // Send OTP email
-  async sendOTPEmail(email, otp, type, userData = {}) {
-    const emailData = this.getEmailTemplate(type, otp, userData);
-    
-    await sendEmail({
-      to: email,
-      subject: emailData.subject,
-      template: 'otp-verification',
-      data: {
-        otp,
-        type,
-        email,
-        ...emailData.data,
-        ...userData
-      }
-    });
   }
 
   // Get email template data based on type

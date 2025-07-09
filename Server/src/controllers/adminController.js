@@ -212,6 +212,261 @@ class AdminController {
 
 
 
+  // delete client 
+  // Replace the existing deleteClient method in ClientController.js with this fixed version
+
+async deleteClient(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { userId, role, businessId } = req.user;
+    
+    // Handle cases where req.body might be undefined or empty (common with DELETE requests)
+    const requestBody = req.body || {};
+    const { force = false, transferAppointments = false, transferToStaff = null } = requestBody;
+
+    // Only business admins and super admins can delete clients
+    if (![ROLES.BUSINESS_ADMIN, ROLES.SUPER_ADMIN].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Find the client with business associations
+    const client = await User.findById(id).populate('business', 'profile.name');
+    if (!client || client.role !== ROLES.CLIENT) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found'
+      });
+    }
+
+    // Check if business admin owns this client
+    // if (role === ROLES.BUSINESS_ADMIN) {
+    //   // Check if client is associated with the business admin's business
+    //   const hasAccess = client.business && client.business.some(bizId => 
+    //     businessId === bizId.toString()
+    //   );
+    //   if (!hasAccess) {
+    //     return res.status(403).json({
+    //       success: false,
+    //       message: 'Access denied. You can only delete clients associated with your business.'
+    //     });
+    //   }
+    // }
+
+    // Store client info for logging
+    const clientInfo = {
+      name: `${client.profile.firstName} ${client.profile.lastName}`,
+      email: client.profile.email,
+      phone: client.profile.phone
+    };
+
+    // Check for related data
+    const [appointmentCount, invoiceCount, petCount] = await Promise.all([
+      Appointment.countDocuments({ client: id }),
+      Invoice.countDocuments({ client: id }),
+      Pet.countDocuments({ owner: id })
+    ]);
+
+    const hasRelatedData = appointmentCount > 0 || invoiceCount > 0 || petCount > 0;
+
+    // If client has related data and force is not specified, provide summary
+    if (hasRelatedData && !force) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete client with existing data. Use force option to proceed.',
+        data: {
+          client: clientInfo,
+          relatedData: {
+            appointments: appointmentCount,
+            invoices: invoiceCount,
+            pets: petCount
+          },
+          solution: {
+            message: 'To delete this client, send a DELETE request with a JSON body containing:',
+            example: {
+              force: true,
+              transferAppointments: appointmentCount > 0 ? true : false,
+              transferToStaff: appointmentCount > 0 ? 'staff_user_id_here' : null
+            }
+          }
+        }
+      });
+    }
+
+    // Handle related data cleanup if force is true
+    const cleanupResults = {
+      appointmentsHandled: 0,
+      invoicesArchived: 0,
+      petsDeleted: 0
+    };
+
+    if (force && hasRelatedData) {
+      // Validate transfer staff if appointments need to be transferred
+      if (transferAppointments && appointmentCount > 0) {
+        if (!transferToStaff) {
+          return res.status(400).json({
+            success: false,
+            message: 'transferToStaff is required when transferAppointments is true'
+          });
+        }
+
+        const transferStaff = await User.findById(transferToStaff);
+        if (!transferStaff || transferStaff.role !== ROLES.STAFF) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid transfer staff member. Must be a valid staff user.'
+          });
+        }
+      }
+
+      // Handle appointments
+      if (appointmentCount > 0) {
+        if (transferAppointments && transferToStaff) {
+          // Transfer future appointments to staff
+          const transferResult = await Appointment.updateMany(
+            { 
+              client: id,
+              'schedule.startTime': { $gte: new Date() },
+              status: { $in: ['scheduled', 'confirmed'] }
+            },
+            { 
+              $set: { 
+                client: null,
+                'details.notes': `Transferred from deleted client: ${clientInfo.name} (${clientInfo.email})`,
+                'staff.assigned': transferToStaff,
+                updatedAt: new Date()
+              }
+            }
+          );
+          cleanupResults.appointmentsHandled += transferResult.modifiedCount;
+
+          // Cancel past appointments
+          await Appointment.updateMany(
+            { 
+              client: id,
+              'schedule.startTime': { $lt: new Date() }
+            },
+            { 
+              $set: { 
+                status: 'cancelled',
+                'details.cancellationReason': `Client account deleted: ${clientInfo.name}`,
+                updatedAt: new Date()
+              }
+            }
+          );
+        } else {
+          // Cancel all appointments
+          const cancelResult = await Appointment.updateMany(
+            { client: id },
+            { 
+              $set: { 
+                status: 'cancelled',
+                'details.cancellationReason': `Client account deleted: ${clientInfo.name}`,
+                updatedAt: new Date()
+              }
+            }
+          );
+          cleanupResults.appointmentsHandled = cancelResult.modifiedCount;
+        }
+      }
+
+      // Archive invoices (don't delete for compliance)
+      if (invoiceCount > 0) {
+        const invoiceResult = await Invoice.updateMany(
+          { client: id },
+          { 
+            $set: { 
+              'metadata.clientDeleted': true,
+              'metadata.deletedClientInfo': clientInfo,
+              'metadata.deletionDate': new Date(),
+              updatedAt: new Date()
+            }
+          }
+        );
+        cleanupResults.invoicesArchived = invoiceResult.modifiedCount;
+      }
+
+      // Delete pets
+      if (petCount > 0) {
+        await Pet.deleteMany({ owner: id });
+        cleanupResults.petsDeleted = petCount;
+      }
+
+      // Remove client from business associations
+      await Business.updateMany(
+        { clients: id },
+        { $pull: { clients: id } }
+      );
+    }
+
+    // Log the deletion
+    await auditService.log({
+      user: userId,
+      action: 'DELETE',
+      resource: 'client',
+      resourceId: id,
+      details: {
+        deletedClient: clientInfo,
+        deletedBy: role === ROLES.SUPER_ADMIN ? 'Super Admin' : `Business Admin (${businessId})`,
+        relatedDataSummary: {
+          appointments: appointmentCount,
+          invoices: invoiceCount,
+          pets: petCount
+        },
+        cleanupResults: force ? cleanupResults : null,
+        forceDelete: force
+      },
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        deletionReason: 'client_account_deletion'
+      }
+    });
+
+    // Delete the user account
+    await User.findByIdAndDelete(id);
+
+    const message = force && hasRelatedData 
+      ? `Client ${clientInfo.name} and all related data have been handled and deleted successfully`
+      : `Client ${clientInfo.name} deleted successfully`;
+
+    res.json({
+      success: true,
+      message,
+      data: {
+        deletedClient: clientInfo,
+        relatedDataSummary: {
+          appointments: appointmentCount,
+          invoices: invoiceCount,
+          pets: petCount
+        },
+        cleanupResults: force ? cleanupResults : null,
+        deletionSummary: {
+          userAccountDeleted: true,
+          relatedDataHandled: force && hasRelatedData,
+          auditLogPreserved: true
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Delete client error:', error);
+    
+    // Handle specific errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid client ID format'
+      });
+    }
+
+    next(error);
+  }
+}
+
+
 
   // Create staff and client accounts
  async createUser(req, res, next) {
@@ -654,49 +909,275 @@ async getUsers(req, res, next) {
   }
 
   // Deactivate/Activate user
-  async toggleUserStatus(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { isActive } = req.body;
+ // Fixed toggleUserStatus method for adminController.js
 
-      const user = await User.findById(id);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
+// Add this method to your adminController.js (based on your toggleUserStatus pattern)
 
-      // Check permissions
-      if (req.user.role !== ROLES.SUPER_ADMIN && user.business?.toString() !== req.user.businessId?.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied'
-        });
-      }
+async toggleClientStatus(req, res, next) {
+  try {
+    const { id } = req.params; // This is the client ID
+    
+    // Handle cases where req.body might be undefined or empty
+    const requestBody = req.body || {};
+    const { isActive } = requestBody;
 
-      user.isActive = isActive;
-      await user.save();
-
-      // Log action
-      await auditService.log({
-        user: req.user.userId,
-        business: user.business,
-        action: isActive ? 'ACTIVATE' : 'DEACTIVATE',
-        resource: 'user',
-        resourceId: user._id
+    // Validate that isActive is provided
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive field is required and must be a boolean (true or false)',
+        example: {
+          isActive: true // or false
+        }
       });
-
-      res.json({
-        success: true,
-        message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
-        data: { user }
-      });
-    } catch (error) {
-      next(error);
     }
-  }
 
+    // Find the client (user with role 'client')
+    const client = await User.findById(id);
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found'
+      });
+    }
+
+    // Ensure this is actually a client
+    if (client.role !== ROLES.CLIENT) {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not a client. This endpoint is only for client accounts.'
+      });
+    }
+
+    console.log('Client to toggle:', client);
+
+    // Check permissions - business admin can only manage clients in their business
+    // if (req.user.role !== ROLES.SUPER_ADMIN && client.business?.toString() !== req.user.businessId?.toString()) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'Access denied. You can only manage clients within your business.'
+    //   });
+    // }
+
+
+    const creatorId = client.profile.createdBy?.toString();
+
+    // only allow SUPER_ADMIN or the original creator
+    if (
+      req.user.role !== ROLES.SUPER_ADMIN &&
+      creatorId !== req.user.userId.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only manage clients you created.'
+      });
+    }
+
+    // Store previous status for audit
+    const previousStatus = client.isActive;
+    
+    // Update client status
+    client.isActive = isActive;
+    client.updatedAt = new Date();
+    await client.save();
+
+    // Log action with comprehensive details
+    await auditService.log({
+      user: req.user.userId,
+      business: client.business,
+      action: isActive ? 'ACTIVATE_CLIENT' : 'DEACTIVATE_CLIENT',
+      resource: 'client',
+      resourceId: client._id,
+      details: {
+        targetClient: {
+          name: `${client.profile.firstName} ${client.profile.lastName}`,
+          email: client.profile.email,
+          role: client.role
+        },
+        statusChange: {
+          from: previousStatus,
+          to: isActive
+        },
+        performedBy: {
+          userId: req.user.userId,
+          role: req.user.role,
+          businessId: req.user.businessId
+        }
+      },
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    // Remove sensitive data from response
+    const clientResponse = client.toObject();
+    delete clientResponse.auth;
+
+    res.json({
+      success: true,
+      message: `Client ${isActive ? 'activated' : 'deactivated'} successfully`,
+      data: { 
+        client: clientResponse,
+        statusChange: {
+          from: previousStatus,
+          to: isActive,
+          changedAt: new Date().toISOString()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Toggle client status error:', error);
+    
+    // Handle specific errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid client ID format'
+      });
+    }
+
+    next(error);
+  }
+}
+
+// Batch toggle client status method
+async batchToggleClientStatus(req, res, next) {
+  try {
+    const requestBody = req.body || {};
+    const { clientIds, isActive } = requestBody;
+
+    // Validation
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'clientIds must be a non-empty array'
+      });
+    }
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive field is required and must be a boolean'
+      });
+    }
+
+    if (clientIds.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot update more than 50 clients at once'
+      });
+    }
+
+    // Find all clients (users with role 'client')
+    const clients = await User.find({ 
+      _id: { $in: clientIds },
+      role: ROLES.CLIENT 
+    });
+    
+    if (clients.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No valid clients found'
+      });
+    }
+
+    // Check permissions for each client
+    const unauthorizedClients = [];
+    const authorizedClients = [];
+
+    for (const client of clients) {
+      if (req.user.role !== ROLES.SUPER_ADMIN && 
+          client.business?.toString() !== req.user.businessId?.toString()) {
+        unauthorizedClients.push({
+          id: client._id,
+          name: `${client.profile.firstName} ${client.profile.lastName}`,
+          email: client.profile.email
+        });
+      } else {
+        authorizedClients.push(client);
+      }
+    }
+
+    if (unauthorizedClients.length > 0) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied for ${unauthorizedClients.length} client(s)`,
+        data: {
+          unauthorizedClients,
+          authorizedCount: authorizedClients.length
+        }
+      });
+    }
+
+    // Update authorized clients
+    const updateResults = {
+      updated: 0,
+      unchanged: 0,
+      errors: []
+    };
+
+    for (const client of authorizedClients) {
+      try {
+        const previousStatus = client.isActive;
+        
+        if (previousStatus !== isActive) {
+          client.isActive = isActive;
+          client.updatedAt = new Date();
+          await client.save();
+          updateResults.updated++;
+
+          // Log individual change
+          await auditService.log({
+            user: req.user.userId,
+            business: client.business,
+            action: isActive ? 'BATCH_ACTIVATE_CLIENT' : 'BATCH_DEACTIVATE_CLIENT',
+            resource: 'client',
+            resourceId: client._id,
+            details: {
+              targetClient: {
+                name: `${client.profile.firstName} ${client.profile.lastName}`,
+                email: client.profile.email,
+                role: client.role
+              },
+              statusChange: { from: previousStatus, to: isActive },
+              batchOperation: true
+            },
+            metadata: {
+              ipAddress: req.ip,
+              userAgent: req.get('User-Agent'),
+              batchId: `batch_${Date.now()}`
+            }
+          });
+        } else {
+          updateResults.unchanged++;
+        }
+      } catch (error) {
+        updateResults.errors.push({
+          clientId: client._id,
+          name: `${client.profile.firstName} ${client.profile.lastName}`,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Batch client status update completed. ${updateResults.updated} client(s) updated.`,
+      data: {
+        summary: updateResults,
+        targetStatus: isActive,
+        processedClients: authorizedClients.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Batch toggle client status error:', error);
+    next(error);
+  }
+}
   // Reset user password
   async resetUserPassword(req, res, next) {
     try {

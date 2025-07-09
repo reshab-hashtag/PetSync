@@ -7,15 +7,14 @@ class EmailService {
   constructor() {
     // Email transporter
     this.transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT),
-    secure: Number(process.env.SMTP_PORT) === 465, // true for port 465, false for others
-    auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
-
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: Number(process.env.SMTP_PORT) === 465, // true for port 465, false for others
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
 
     // Email templates cache
     this.templates = new Map();
@@ -60,6 +59,60 @@ class EmailService {
     }
 
     const defaultTemplates = {
+      'otp-verification': `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>{{title}} - PetSync</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+                .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+                .header { text-align: center; margin-bottom: 20px; }
+                .otp-code { font-size: 32px; font-weight: bold; text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; letter-spacing: 4px; color: #2563eb; }
+                .warning { background: #fef3cd; padding: 15px; border-radius: 4px; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #6c757d; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🐾 PetSync</h1>
+                    <h2>{{title}}</h2>
+                </div>
+                
+                <div class="content">
+                    {{#if firstName}}
+                        <p>Hi {{firstName}},</p>
+                    {{else}}
+                        <p>Hello,</p>
+                    {{/if}}
+                    
+                    <p>{{message}}</p>
+                    
+                    <div class="otp-code">{{otp}}</div>
+                    
+                    <div class="warning">
+                        ⚠️ This code will expire in <strong>10 minutes</strong> and can only be used once.
+                    </div>
+                    
+                    <p><strong>Security Tips:</strong></p>
+                    <ul>
+                        <li>Never share this code with anyone</li>
+                        <li>PetSync will never ask for your code via phone or email</li>
+                        <li>If you didn't request this code, please ignore this email</li>
+                    </ul>
+                </div>
+                
+                <div class="footer">
+                    <p>This email was sent for {{action}} on your PetSync account.</p>
+                    <p>If you have any questions, contact us at support@petsync.com</p>
+                    <p>&copy; 2025 PetSync. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+      `,
       'email-verification': `
         <h2>Welcome to PetSync!</h2>
         <p>Hi {{firstName}},</p>
@@ -140,4 +193,13 @@ class EmailService {
   }
 }
 
-module.exports = new EmailService();
+// Export a single instance
+const emailService = new EmailService();
+
+// Export the sendEmail function directly for backward compatibility
+const sendEmail = emailService.sendEmail.bind(emailService);
+
+module.exports = {
+  sendEmail,
+  emailService
+};

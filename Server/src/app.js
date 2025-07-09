@@ -38,6 +38,7 @@ const businessCategoryRoutes = require('./routes/businessCategory');
 const dashboardRoutes = require('./routes/dashboard');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/admin');
+const otpRoutes = require('./routes/otp')
 // const paymentRoutes = require('./routes/payments');
 
 // Import socket handlers
@@ -107,6 +108,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
+app.use('/api/otp', otpRoutes);
 // app.use('/api/payments', paymentRoutes);
 
 // Static file serving

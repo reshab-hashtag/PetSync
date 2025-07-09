@@ -31,12 +31,12 @@ router.post('/users',
 );
 
 
-// router.get('/users/:id', 
-//   authenticate, 
-//   requireRole([ROLES.SUPER_ADMIN, ROLES.BUSINESS_ADMIN]), 
-//   validateMongoId('id'),
-//   adminController.getUser
-// );
+router.delete('/users/:id', 
+  authenticate, 
+  requireRole([ROLES.BUSINESS_ADMIN]), 
+  validateMongoId('id'),
+  adminController.deleteClient
+);
 
 router.put('/users/:id', 
   authenticate, 
@@ -47,9 +47,9 @@ router.put('/users/:id',
 
 router.patch('/users/:id/status', 
   authenticate, 
-  requireRole([ROLES.SUPER_ADMIN, ROLES.BUSINESS_ADMIN]), 
+  requireRole([ROLES.BUSINESS_ADMIN]), 
   validateMongoId('id'),
-  adminController.toggleUserStatus
+  adminController.toggleClientStatus
 );
 
 router.post('/users/:id/reset-password', 

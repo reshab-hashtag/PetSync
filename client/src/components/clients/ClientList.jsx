@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { 
-  PlusIcon, 
-  MagnifyingGlassIcon, 
-  PencilIcon, 
+import {
+  PlusIcon,
+  MagnifyingGlassIcon,
+  PencilIcon,
   TrashIcon,
   EyeIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  XMarkIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline';
 import { getClients, deleteClient, toggleClientStatus, setFilters } from '../../store/slices/clientSlice';
 import ClientRegistrationForm from './ClientRegistrationForm';
@@ -17,12 +19,12 @@ import RoleBasedAccess from '../common/RoleBasedAccess';
 
 const ClientList = () => {
   const dispatch = useDispatch();
-  const { 
+  const {
     clients = [], // Default to empty array
-    pagination, 
-    filters, 
-    isLoading, 
-    error 
+    pagination,
+    filters,
+    isLoading,
+    error
   } = useSelector((state) => state.client);
   const { user } = useSelector((state) => state.auth);
 
@@ -69,11 +71,21 @@ const ClientList = () => {
   };
 
   const handleToggleStatus = async (clientId) => {
+    const client = clients.find(c => (c._id || c.id) === clientId);
+    if (!client) return;
+
+    const newStatus = !client.isActive;
+
     try {
-      await dispatch(toggleClientStatus(clientId)).unwrap();
-      fetchClients(); // Refresh the list
+      await dispatch(toggleClientStatus({
+        clientId,
+        isActive: newStatus
+      })).unwrap();
+
+      // Refresh the list
+      dispatch(getClients());
     } catch (error) {
-      console.error('Error toggling client status:', error);
+      console.error('Failed to toggle status:', error);
     }
   };
 
@@ -98,7 +110,7 @@ const ClientList = () => {
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
           <p className="text-gray-600">Manage your pet owner clients</p>
         </div>
-        
+
         <RoleBasedAccess allowedRoles={['business_admin', 'staff']}>
           <button
             onClick={() => setShowRegistrationForm(true)}
@@ -133,11 +145,10 @@ const ClientList = () => {
               <button
                 key={status}
                 onClick={() => handleStatusFilter(status)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedStatus === status
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedStatus === status
                     ? 'bg-primary-100 text-primary-700 border border-primary-200'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
@@ -153,7 +164,7 @@ const ClientList = () => {
         </div>
       )}
 
-              {/* Clients Table */}
+      {/* Clients Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {!Array.isArray(clients) || clients.length === 0 ? (
           <div className="text-center py-12">
@@ -237,11 +248,10 @@ const ClientList = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          client.isActive
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${client.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {client.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -255,14 +265,14 @@ const ClientList = () => {
                         <RoleBasedAccess allowedRoles={['business_admin', 'staff']}>
                           <div className="flex items-center justify-end space-x-2">
                             <button
-                              onClick={() => {/* Handle view client */}}
+                              onClick={() => {/* Handle view client */ }}
                               className="text-indigo-600 hover:text-indigo-900 p-1"
                               title="View client"
                             >
                               <EyeIcon className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {/* Handle edit client */}}
+                              onClick={() => {/* Handle edit client */ }}
                               className="text-blue-600 hover:text-blue-900 p-1"
                               title="Edit client"
                             >
@@ -270,14 +280,10 @@ const ClientList = () => {
                             </button>
                             <button
                               onClick={() => handleToggleStatus(client._id || client.id)}
-                              className={`p-1 ${
-                                client.isActive 
-                                  ? 'text-red-600 hover:text-red-900' 
-                                  : 'text-green-600 hover:text-green-900'
-                              }`}
-                              title={client.isActive ? 'Deactivate client' : 'Activate client'}
+                              className={`${client.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
+                              title={client.isActive ? 'Deactivate' : 'Activate'}
                             >
-                              {client.isActive ? 'Deactivate' : 'Activate'}
+                              {client.isActive ? <XMarkIcon className="h-4 w-4" /> : <CheckIcon className="h-4 w-4" />}
                             </button>
                             <RoleBasedAccess allowedRoles={['business_admin']}>
                               <button

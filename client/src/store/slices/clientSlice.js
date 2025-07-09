@@ -76,12 +76,13 @@ export const deleteClient = createAsyncThunk(
   }
 );
 
+
 export const toggleClientStatus = createAsyncThunk(
   'client/toggleStatus',
-  async (clientId, { rejectWithValue }) => {
+  async ({ clientId, isActive }, { rejectWithValue }) => {
     try {
-      const response = await clientAPI.toggleClientStatus(clientId);
-      toast.success('Client status updated successfully!');
+      const response = await clientAPI.toggleClientStatus(clientId, isActive);
+      toast.success(`Client ${isActive ? 'activated' : 'deactivated'} successfully!`);
       return response.data.data;
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to update client status';
@@ -90,6 +91,7 @@ export const toggleClientStatus = createAsyncThunk(
     }
   }
 );
+
 
 const initialState = {
   clients: [],
