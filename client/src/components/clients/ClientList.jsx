@@ -1,4 +1,4 @@
-// client/src/components/clients/ClientList.jsx (Updated with registration button)
+// client/src/components/clients/ClientList.jsx (Updated with edit and details modals)
 
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -14,9 +14,12 @@ import {
 } from '@heroicons/react/24/outline';
 import { getClients, deleteClient, toggleClientStatus, setFilters } from '../../store/slices/clientSlice';
 import ClientRegistrationForm from './ClientRegistrationForm';
+import ClientForm from './ClientForm';
+import ClientDetails from './ClientDetails';
 import LoadingSpinner from '../common/LoadingSpinner';
 import RoleBasedAccess from '../common/RoleBasedAccess';
 import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
+import Modal from '../common/Modal';
 import toast from 'react-hot-toast';
 
 const ClientList = () => {
@@ -35,6 +38,13 @@ const ClientList = () => {
   const [selectedStatus, setSelectedStatus] = useState(filters.status);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
+
+  // Modal states
+  const [modals, setModals] = useState({
+    view: false,
+    edit: false
+  });
+  const [selectedClient, setSelectedClient] = useState(null);
 
   useEffect(() => {
     fetchClients();
@@ -63,19 +73,38 @@ const ClientList = () => {
     dispatch(setFilters({ status, currentPage: 1 }));
   };
 
-  const handleDeleteClient = async (clientId) => {
-    if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+  const handleRegistrationSuccess = () => {
+    setShowRegistrationForm(false);
+    fetchClients();
+    toast.success('Client registered successfully!');
+  };
+
+  const handleDeleteClick = (client) => {
+    setClientToDelete(client);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setClientToDelete(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (clientToDelete) {
       try {
-        await dispatch(deleteClient(clientId)).unwrap();
-        fetchClients(); // Refresh the list
+        await dispatch(deleteClient(clientToDelete.id)).unwrap();
+        toast.success('Client deleted successfully');
+        fetchClients();
       } catch (error) {
-        console.error('Error deleting client:', error);
+        toast.error(error.message || 'Failed to delete client');
       }
     }
+    setShowDeleteModal(false);
+    setClientToDelete(null);
   };
 
   const handleToggleStatus = async (clientId) => {
-    const client = clients.find(c => (c._id || c.id) === clientId);
+    const client = clients.find(c => (c.id) === clientId);
     if (!client) return;
 
     const newStatus = !client.isActive;
@@ -93,56 +122,55 @@ const ClientList = () => {
     }
   };
 
-  const handleRegistrationSuccess = () => {
-    setShowRegistrationForm(false);
-    fetchClients(); // Refresh the list
+  // Modal functions
+  const openModal = (type, client = null) => {
+    setSelectedClient(client);
+    setModals(prev => ({ ...prev, [type]: true }));
   };
 
-
-
-  const handleDeleteClick = (client) => {
-    setClientToDelete(client);
-    setShowDeleteModal(true);
+  const closeModal = (type) => {
+    setModals(prev => ({ ...prev, [type]: false }));
+    setSelectedClient(null);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!clientToDelete) return;
-
-    try {
-      await dispatch(deleteClient(clientToDelete._id || clientToDelete.id)).unwrap();
-      toast.success('Client deleted successfully');
-      setShowDeleteModal(false);
-      setClientToDelete(null);
-      fetchClients(); // Refresh the list
-    } catch (error) {
-      console.error('Error deleting client:', error);
-      toast.error('Failed to delete client');
-    }
+  const handleViewClient = (client) => {
+    openModal('view', client);
   };
 
-  const handleDeleteCancel = () => {
-    setShowDeleteModal(false);
-    setClientToDelete(null);
+  const handleEditClient = (client) => {
+    openModal('edit', client);
   };
 
+  const handleEditSuccess = () => {
+    closeModal('edit');
+    fetchClients();
+    toast.success('Client updated successfully!');
+  };
 
-  if (isLoading) {
+  if (error) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <LoadingSpinner size="lg" />
+      <div className="text-center py-12">
+        <div className="text-red-600 mb-4">Error loading clients: {error}</div>
+        <button
+          onClick={fetchClients}
+          className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="">
+    <div>
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-          <p className="text-gray-600">Manage your pet owner clients</p>
+          <p className="text-sm text-gray-600">
+            Manage your client database and registrations
+          </p>
         </div>
-
         <RoleBasedAccess allowedRoles={['business_admin', 'staff']}>
           <button
             onClick={() => setShowRegistrationForm(true)}
@@ -155,50 +183,45 @@ const ClientList = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1">
+          <form onSubmit={handleSearch} className="flex-1 max-w-md">
             <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search clients..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
           </form>
 
           {/* Status Filter */}
-          <div className="flex space-x-2">
-            {['all', 'active', 'inactive'].map((status) => (
-              <button
-                key={status}
-                onClick={() => handleStatusFilter(status)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedStatus === status
-                  ? 'bg-primary-100 text-primary-700 border border-primary-200'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-gray-700">Status:</span>
+            <select
+              value={selectedStatus}
+              onChange={(e) => handleStatusFilter(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* Error State */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Clients Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {!Array.isArray(clients) || clients.length === 0 ? (
+      {/* Content */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <LoadingSpinner />
+          </div>
+        ) : !Array.isArray(clients) || clients.length === 0 ? (
           <div className="text-center py-12">
             <UserCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No clients found</h3>
@@ -251,7 +274,7 @@ const ClientList = () => {
                               <img
                                 className="h-10 w-10 rounded-full"
                                 src={client.profile.avatar}
-                                alt=""
+                                alt={`${client.profile.firstName} ${client.profile.lastName}`}
                               />
                             ) : (
                               <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
@@ -261,17 +284,17 @@ const ClientList = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {client.fullName || `${client.profile?.firstName} ${client.profile?.lastName}`}
+                              {client.profile?.firstName} {client.profile?.lastName}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {client.profile?.email}
+                              {client.email}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {client.profile?.phone || 'N/A'}
+                          {client.profile?.phone || 'No phone'}
                         </div>
                         <div className="text-sm text-gray-500">
                           {client.profile?.address?.city && client.profile?.address?.state
@@ -297,21 +320,21 @@ const ClientList = () => {
                         <RoleBasedAccess allowedRoles={['business_admin', 'staff']}>
                           <div className="flex items-center justify-end space-x-2">
                             <button
-                              onClick={() => {/* Handle view client */ }}
+                              onClick={() => handleViewClient(client)}
                               className="text-indigo-600 hover:text-indigo-900 p-1"
                               title="View client"
                             >
                               <EyeIcon className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {/* Handle edit client */ }}
+                              onClick={() => handleEditClient(client)}
                               className="text-blue-600 hover:text-blue-900 p-1"
                               title="Edit client"
                             >
                               <PencilIcon className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleToggleStatus(client._id || client.id)}
+                              onClick={() => handleToggleStatus(client.id)}
                               className={`${client.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
                               title={client.isActive ? 'Deactivate' : 'Activate'}
                             >
@@ -389,8 +412,37 @@ const ClientList = () => {
         />
       )}
 
+      {/* View Client Modal */}
+      <Modal
+        isOpen={modals.view}
+        onClose={() => closeModal('view')}
+        title="Client Details"
+        size="xl"
+      >
+        <ClientDetails
+          client={selectedClient}
+          onClose={() => closeModal('view')}
+          onEdit={() => {
+            closeModal('view');
+            openModal('edit', selectedClient);
+          }}
+        />
+      </Modal>
 
-
+      {/* Edit Client Modal */}
+      <Modal
+        isOpen={modals.edit}
+        onClose={() => closeModal('edit')}
+        title="Edit Client"
+        size="xl"
+      >
+        <ClientForm
+          client={selectedClient}
+          isEdit={true}
+          onSuccess={handleEditSuccess}
+          onCancel={() => closeModal('edit')}
+        />
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal

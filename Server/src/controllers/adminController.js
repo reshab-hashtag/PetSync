@@ -472,15 +472,14 @@ async deleteClient(req, res, next) {
  async createUser(req, res, next) {
   try {
     const { 
-      firstName, 
-      lastName, 
-      email, 
-      password, 
-      phone, 
+      auth, 
       role,
-      address,
-      emergencyContact
+      profile
     } = req.body;
+
+
+      const { firstName, lastName, phone, address, email } = profile;
+      const { password } = auth;
 
     // Validate required fields
     if (!firstName || !lastName || !email || !password || !role) {
@@ -539,9 +538,6 @@ async deleteClient(req, res, next) {
       });
     }
 
-    console.log('Creator ID:', creatorId);
-    console.log('User role:', req.user.role);
-
     // Prepare user data
     const userData = {
       role,
@@ -582,26 +578,10 @@ async deleteClient(req, res, next) {
       }
     }
 
-    // Add emergency contact if provided
-    if (emergencyContact && emergencyContact.name && emergencyContact.phone) {
-      userData.emergencyContact = {
-        name: emergencyContact.name.trim(),
-        phone: emergencyContact.phone.trim(),
-        relationship: emergencyContact.relationship?.trim() || 'other'
-      };
-    }
-
-    console.log('User data before save:', {
-      role: userData.role,
-      createdBy: userData.profile.createdBy,
-      business: userData.business
-    });
-
     // Create the user
     const newUser = new User(userData);
     await newUser.save();
 
-    console.log('User created successfully with createdBy:', newUser.profile.createdBy);
 
     // Log the creation with additional context
     await auditService.log({
@@ -662,6 +642,333 @@ async deleteClient(req, res, next) {
   // USER MANAGEMENT
   // ===================================
 
+
+// Get single user by ID
+async getUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { 
+      includeOwnerBusinesses = false,
+      includeFullAuditLog = false,
+      includeRelatedData = false,
+      includeStats = false
+    } = req.query;
+
+    // Get current user info
+    const currentUserId = req.user.userData?.id || req.user.userData?._id;
+    const currentUserRole = req.user.userData.role;
+    const currentUserBusinessId = req.user.userData.business || req.user.businessId;
+
+    console.log('Getting single user:', { 
+      requestedUserId: id, 
+      currentUserId, 
+      currentUserRole,
+      currentUserBusinessId 
+    });
+
+    // Validate that the ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
+    // Build base filter
+    const filter = { _id: id };
+    
+    // Apply role-based access restrictions
+    let hasAccess = false;
+    
+    switch (currentUserRole) {
+      case 'super_admin':
+        // Super admin can access any user
+        hasAccess = true;
+        break;
+        
+      case 'business_admin':
+        // Business admin can only access users they created
+        filter['profile.createdBy'] = currentUserId;
+        hasAccess = true;
+        break;
+        
+      case 'staff':
+        // Staff can only see their own profile or users from same business
+        if (id === currentUserId) {
+          hasAccess = true;
+        } else {
+          // Check if the requested user is from the same business
+          filter['business'] = currentUserBusinessId;
+          hasAccess = true;
+        }
+        break;
+        
+      default:
+        hasAccess = false;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Insufficient permissions to view this user.'
+      });
+    }
+
+    console.log('Access filter applied:', filter);
+
+    // Enhanced population based on user role and request parameters
+    const businessPopulation = includeOwnerBusinesses === 'true' 
+      ? 'profile.name owner profile.contactInfo profile.address profile.category'
+      : 'profile.name profile.contactInfo';
+
+    // Find the user with comprehensive related data
+    const user = await User.findOne(filter)
+      .populate('business', businessPopulation)
+      .populate('pets', 'profile.name profile.species profile.breed profile.age profile.gender profile.medicalHistory')
+      .populate('profile.createdBy', 'profile.firstName profile.lastName profile.email role')
+      .select('-auth.passwordHash -auth.loginAttempts -auth.lockUntil')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or access denied'
+      });
+    }
+
+    // Initialize response object
+    let userResponse = { ...user };
+
+    // Add ownership information if requested
+    if (includeOwnerBusinesses === 'true') {
+      try {
+        const ownedBusinesses = await Business.find({ owner: user._id })
+          .select('profile.name profile.description createdAt isActive profile.contactInfo profile.address')
+          .populate('profile.category', 'name color')
+          .lean();
+
+        const isOwnerOfCurrentBusiness = user.business && 
+          user.business.owner && 
+          user.business.owner.toString() === user._id.toString();
+
+        userResponse.ownershipInfo = {
+          isOwnerOfCurrentBusiness,
+          ownedBusinesses,
+          totalOwnedBusinesses: ownedBusinesses.length
+        };
+      } catch (error) {
+        console.error('Error fetching ownership info:', error);
+        userResponse.ownershipInfo = {
+          error: 'Failed to fetch ownership information'
+        };
+      }
+    }
+
+    // Add related data if requested
+    if (includeRelatedData === 'true') {
+      try {
+        const [appointmentStats, invoiceStats, messageStats] = await Promise.all([
+          // Appointment statistics
+          mongoose.model('Appointment').aggregate([
+            { $match: { client: mongoose.Types.ObjectId(user._id) } },
+            { 
+              $group: { 
+                _id: '$status', 
+                count: { $sum: 1 },
+                totalAmount: { $sum: '$price' }
+              } 
+            }
+          ]),
+          
+          // Invoice statistics
+          mongoose.model('Invoice').aggregate([
+            { $match: { client: mongoose.Types.ObjectId(user._id) } },
+            { 
+              $group: { 
+                _id: '$status', 
+                count: { $sum: 1 },
+                totalAmount: { $sum: '$amount' }
+              } 
+            }
+          ]),
+          
+          // Message statistics (if you have messaging)
+          mongoose.model('Message') ? mongoose.model('Message').aggregate([
+            { $match: { $or: [{ sender: mongoose.Types.ObjectId(user._id) }, { recipient: mongoose.Types.ObjectId(user._id) }] } },
+            { $group: { _id: null, count: { $sum: 1 } } }
+          ]) : Promise.resolve([])
+        ]);
+
+        userResponse.relatedData = {
+          appointments: {
+            breakdown: appointmentStats.reduce((acc, item) => {
+              acc[item._id] = { count: item.count, totalAmount: item.totalAmount };
+              return acc;
+            }, {}),
+            total: appointmentStats.reduce((sum, item) => sum + item.count, 0)
+          },
+          invoices: {
+            breakdown: invoiceStats.reduce((acc, item) => {
+              acc[item._id] = { count: item.count, totalAmount: item.totalAmount };
+              return acc;
+            }, {}),
+            total: invoiceStats.reduce((sum, item) => sum + item.count, 0),
+            totalSpent: invoiceStats
+              .filter(item => item._id === 'paid')
+              .reduce((sum, item) => sum + item.totalAmount, 0)
+          },
+          messages: {
+            total: messageStats[0]?.count || 0
+          }
+        };
+      } catch (error) {
+        console.error('Error fetching related data:', error);
+        userResponse.relatedData = {
+          error: 'Failed to fetch related data'
+        };
+      }
+    }
+
+    // Add audit log if requested (only for super_admin)
+    if (includeFullAuditLog === 'true' && currentUserRole === 'super_admin') {
+      try {
+        const auditLogs = await mongoose.model('AuditLog').find({ 
+          $or: [
+            { user: user._id },
+            { resourceId: user._id }
+          ]
+        })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .populate('user', 'profile.firstName profile.lastName profile.email')
+        .select('action resource details createdAt metadata')
+        .lean();
+
+        userResponse.auditLog = auditLogs;
+      } catch (error) {
+        console.error('Error fetching audit log:', error);
+        userResponse.auditLog = {
+          error: 'Failed to fetch audit log'
+        };
+      }
+    }
+
+    // Add statistics if requested
+    if (includeStats === 'true') {
+      try {
+        let createdUsersStats = null;
+        
+        if (user.role === 'business_admin' || currentUserRole === 'super_admin') {
+          const [createdUsersCount, createdUsersBreakdown] = await Promise.all([
+            User.countDocuments({ 'profile.createdBy': user._id }),
+            User.aggregate([
+              { $match: { 'profile.createdBy': mongoose.Types.ObjectId(user._id) } },
+              { $group: { _id: '$role', count: { $sum: 1 } } }
+            ])
+          ]);
+
+          createdUsersStats = {
+            totalCreated: createdUsersCount,
+            breakdown: createdUsersBreakdown.reduce((acc, item) => {
+              acc[item._id] = item.count;
+              return acc;
+            }, {})
+          };
+        }
+
+        userResponse.stats = {
+          createdUsersStats,
+          recentActivity: {
+            lastLogin: user.auth?.lastLogin,
+            lastUpdated: user.updatedAt,
+            accountCreated: user.createdAt,
+            emailVerified: user.auth?.emailVerified,
+            phoneVerified: user.auth?.phoneVerified,
+            twoFactorEnabled: user.auth?.twoFactorEnabled,
+            isLocked: user.auth?.lockUntil && user.auth.lockUntil > new Date()
+          }
+        };
+      } catch (error) {
+        console.error('Error fetching statistics:', error);
+        userResponse.stats = {
+          error: 'Failed to fetch statistics'
+        };
+      }
+    }
+
+    // Log the access for audit purposes
+    try {
+      await auditService.log({
+        user: currentUserId,
+        action: 'VIEW',
+        resource: 'user',
+        resourceId: user._id,
+        details: {
+          viewedUser: {
+            id: user._id,
+            email: user.profile.email,
+            role: user.role
+          },
+          requestParameters: {
+            includeOwnerBusinesses,
+            includeFullAuditLog,
+            includeRelatedData,
+            includeStats
+          }
+        },
+        metadata: {
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      });
+    } catch (auditError) {
+      console.error('Failed to log audit entry:', auditError);
+    }
+
+    res.json({
+      success: true,
+      data: userResponse,
+      metadata: {
+        requestedBy: {
+          id: currentUserId,
+          role: currentUserRole
+        },
+        requestedAt: new Date().toISOString(),
+        requestParameters: {
+          includeOwnerBusinesses: includeOwnerBusinesses === 'true',
+          includeFullAuditLog: includeFullAuditLog === 'true',
+          includeRelatedData: includeRelatedData === 'true',
+          includeStats: includeStats === 'true'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get single user error:', error);
+    
+    // Handle specific errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        details: error.message
+      });
+    }
+
+    next(error);
+  }
+}
+
+
+
+
   // Get all users with filtering and pagination
 async getUsers(req, res, next) {
   try {
@@ -673,10 +980,7 @@ async getUsers(req, res, next) {
       sortOrder = 'desc',
       includeOwnerBusinesses = false,
       showMyCreatedUsers = false
-    } = req.query; // ✅ Fixed: Changed from req.user to req.query
-
-    console.log('Current user:', req.user.userData);
-    console.log('Query params:', req.query);
+    } = req.query;
     
     // Get current user ID from userData
     const currentUserId = req.user.userData?.id || req.user.userData?._id;
@@ -852,61 +1156,115 @@ async getUsers(req, res, next) {
   // }
 
   // Update user
-  async updateUser(req, res, next) {
-    try {
-      const { id } = req.params;
-      const updates = req.body;
+ async updateUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    console.log(updates)
 
-      const user = await User.findById(id);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      // Check permissions
-      if (req.user.role !== ROLES.SUPER_ADMIN && user.business?.toString() !== req.user.businessId?.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied'
-        });
-      }
-
-      // Store original data for audit
-      const originalData = user.toObject();
-
-      // Update user
-      Object.keys(updates).forEach(key => {
-        if (updates[key] !== undefined && key !== 'auth') {
-          user[key] = updates[key];
-        }
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
-
-      await user.save();
-
-      // Log update
-      await auditService.log({
-        user: req.user.userId,
-        business: user.business,
-        action: 'UPDATE',
-        resource: 'user',
-        resourceId: user._id,
-        details: {
-          before: originalData,
-          after: user.toObject()
-        }
-      });
-
-      res.json({
-        success: true,
-        message: 'User updated successfully',
-        data: { user }
-      });
-    } catch (error) {
-      next(error);
     }
+
+    // Check permissions
+    if (req.user.role !== ROLES.BUSINESS_ADMIN && user.business?.toString() !== req.user.businessId?.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    console.log('Original user:', user);
+    console.log('Updates received:', updates);
+
+    // Store original data for audit
+    const originalData = user.toObject();
+
+    // Handle profile updates specifically
+    if (updates.profile) {
+      // Ensure user.profile exists
+      if (!user.profile) {
+        user.profile = {};
+      }
+
+      // Update only the provided profile fields
+      Object.keys(updates.profile).forEach(profileKey => {
+        if (updates.profile[profileKey] !== undefined) {
+          if (profileKey === 'address' && typeof updates.profile[profileKey] === 'object') {
+            // Handle nested address object
+            user.profile.address = {
+              ...user.profile.address,
+              ...updates.profile[profileKey]
+            };
+          } else if (profileKey === 'emergencyContact' && typeof updates.profile[profileKey] === 'object') {
+            // Handle nested emergencyContact object
+            user.profile.emergencyContact = {
+              ...user.profile.emergencyContact,
+              ...updates.profile[profileKey]
+            };
+          } else {
+            // Handle direct profile fields (firstName, lastName, email, phone, etc.)
+            user.profile[profileKey] = updates.profile[profileKey];
+          }
+        }
+      });
+    }
+
+    // Handle other top-level updates (excluding profile and auth)
+    Object.keys(updates).forEach(key => {
+      if (updates[key] !== undefined && key !== 'auth' && key !== 'profile') {
+        user[key] = updates[key];
+      }
+    });
+
+    // Handle password update separately if provided
+    if (updates.password) {
+      const bcrypt = require('bcrypt');
+      const saltRounds = 12;
+      user.auth = user.auth || {};
+      user.auth.passwordHash = await bcrypt.hash(updates.password, saltRounds);
+    }
+
+    // Mark profile as modified for Mongoose
+    user.markModified('profile');
+
+    await user.save();
+
+
+    // Log update
+    await auditService.log({
+      user: req.user.userId,
+      // business: user.business,
+      action: 'UPDATE',
+      resource: 'user',
+      resourceId: user._id,
+      details: {
+        before: originalData,
+        after: user.toObject(),
+        updatedFields: Object.keys(updates)
+      }
+    });
+
+    // Remove sensitive data from response
+    const responseUser = user.toObject();
+    if (responseUser.auth && responseUser.auth.passwordHash) {
+      delete responseUser.auth.passwordHash;
+    }
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: { user: responseUser }
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    next(error);
   }
+}
 
   // Deactivate/Activate user
  // Fixed toggleUserStatus method for adminController.js
@@ -949,7 +1307,6 @@ async toggleClientStatus(req, res, next) {
       });
     }
 
-    console.log('Client to toggle:', client);
 
     // Check permissions - business admin can only manage clients in their business
     // if (req.user.role !== ROLES.SUPER_ADMIN && client.business?.toString() !== req.user.businessId?.toString()) {
@@ -984,7 +1341,6 @@ async toggleClientStatus(req, res, next) {
     // Log action with comprehensive details
     await auditService.log({
       user: req.user.userId,
-      business: client.business,
       action: isActive ? 'ACTIVATE_CLIENT' : 'DEACTIVATE_CLIENT',
       resource: 'client',
       resourceId: client._id,

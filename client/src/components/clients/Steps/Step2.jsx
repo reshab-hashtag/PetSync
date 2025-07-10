@@ -1,71 +1,99 @@
-import { EyeIcon, EyeSlashIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+// client/src/components/clients/Steps/Step2.jsx (Updated to handle edit mode)
 import React from 'react';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
-const Step2 = ({ showPassword, handleChange, formData, setShowPassword, showConfirmPassword, setShowConfirmPassword }) => {
+const Step2 = ({ 
+    formData, 
+    handleChange, 
+    showPassword, 
+    setShowPassword, 
+    showConfirmPassword, 
+    setShowConfirmPassword,
+    isEdit = false
+}) => {
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                        Password *
+            {isEdit && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-yellow-800">
+                        <strong>Note:</strong> Leave password fields empty to keep the current password unchanged.
+                    </p>
+                </div>
+            )}
+
+            <div className="space-y-4">
+                <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                        {isEdit ? 'New Password' : 'Password'} {!isEdit && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
-                        <LockClosedIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
-                            type={showPassword ? "text" : "password"}
+                            type={showPassword ? 'text' : 'password'}
                             id="password"
                             name="password"
-                            required
-                            className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                             value={formData.password}
                             onChange={handleChange}
-                            placeholder="Enter password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                            placeholder={isEdit ? 'Enter new password (optional)' : 'Enter your password'}
                         />
                         <button
                             type="button"
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
                             onClick={() => setShowPassword(!showPassword)}
                         >
                             {showPassword ? (
-                                <EyeSlashIcon className="h-5 w-5" />
+                                <EyeSlashIcon className="h-5 w-5 text-gray-400" />
                             ) : (
-                                <EyeIcon className="h-5 w-5" />
+                                <EyeIcon className="h-5 w-5 text-gray-400" />
                             )}
                         </button>
                     </div>
-                    <p className="text-xs text-gray-500">Password must be at least 6 characters long</p>
+                    {!isEdit && (
+                        <p className="mt-1 text-sm text-gray-500">
+                            Password must be at least 6 characters long
+                        </p>
+                    )}
                 </div>
 
-                <div className="space-y-2">
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                        Confirm Password *
+                <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                        {isEdit ? 'Confirm New Password' : 'Confirm Password'} {!isEdit && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
-                        <LockClosedIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
-                            type={showConfirmPassword ? "text" : "password"}
+                            type={showConfirmPassword ? 'text' : 'password'}
                             id="confirmPassword"
                             name="confirmPassword"
-                            required
-                            className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                             value={formData.confirmPassword}
                             onChange={handleChange}
-                            placeholder="Confirm password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                            placeholder={isEdit ? 'Confirm new password' : 'Confirm your password'}
                         />
                         <button
                             type="button"
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         >
                             {showConfirmPassword ? (
-                                <EyeSlashIcon className="h-5 w-5" />
+                                <EyeSlashIcon className="h-5 w-5 text-gray-400" />
                             ) : (
-                                <EyeIcon className="h-5 w-5" />
+                                <EyeIcon className="h-5 w-5 text-gray-400" />
                             )}
                         </button>
                     </div>
                 </div>
             </div>
+
+            {isEdit && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Password Requirements:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• Must be at least 6 characters long</li>
+                        <li>• Both password fields must match</li>
+                        <li>• Leave empty to keep current password</li>
+                    </ul>
+                </div>
+            )}
         </div>
     );
 };

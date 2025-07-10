@@ -24,6 +24,14 @@ router.get('/users',
   adminController.getUsers
 );
 
+// Get single user by ID - ADD THIS ROUTE
+router.get('/users/:id', 
+  authenticate, 
+  requireRole([ROLES.BUSINESS_ADMIN, ROLES.STAFF]), 
+  validateMongoId('id'),
+  adminController.getUser
+);
+
 router.post('/users', 
   authenticate, 
   requireRole([ROLES.BUSINESS_ADMIN]), 

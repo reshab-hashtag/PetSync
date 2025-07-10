@@ -34,11 +34,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
             state: '',
             zipCode: '',
             country: 'India'
-        },
-        emergencyContact: {
-            name: '',
-            phone: '',
-            relationship: ''
         }
     });
 
@@ -70,13 +65,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
             description: 'Contact information',
             icon: MapPinIcon,
             color: 'purple'
-        },
-        {
-            id: 4,
-            name: 'Emergency Contact',
-            description: 'Emergency contact details',
-            icon: UserGroupIcon,
-            color: 'orange'
         }
     ];
 
@@ -175,11 +163,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
 
         try {
             const clientData = {
-                firstName: formData.firstName.trim(),
-                lastName: formData.lastName.trim(),
-                email: formData.email.toLowerCase().trim(),
-                password: formData.password,
-                phone: formData.phone.trim(),
                 role: 'client',
                 profile: {
                     firstName: formData.firstName.trim(),
@@ -194,11 +177,9 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                         country: formData.address.country
                     }
                 },
-                emergencyContact: formData.emergencyContact.name.trim() ? {
-                    name: formData.emergencyContact.name.trim(),
-                    phone: formData.emergencyContact.phone.trim(),
-                    relationship: formData.emergencyContact.relationship.trim()
-                } : undefined
+                auth: {
+                    password: formData.password,
+                }
             };
 
             const result = await dispatch(registerClient(clientData)).unwrap();
@@ -219,11 +200,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                     state: '',
                     zipCode: '',
                     country: 'India'
-                },
-                emergencyContact: {
-                    name: '',
-                    phone: '',
-                    relationship: ''
                 }
             });
             setCurrentStep(1);
@@ -267,15 +243,6 @@ const ClientRegistrationForm = ({ onClose, onSuccess }) => {
                         handleChange={handleChange}
                     />
                 );
-
-            case 4:
-                return (
-                    <Step4
-                        formData={formData}
-                        handleChange={handleChange}
-                    />
-                );
-
             default:
                 return null;
         }
