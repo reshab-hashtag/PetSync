@@ -112,6 +112,7 @@ const PetList = () => {
     return acc;
   }, {});
 
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -163,7 +164,7 @@ const PetList = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Dogs</p>
-              <p className="text-2xl font-bold text-gray-900">{speciesStats.Dog || 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{speciesStats.dog || 0}</p>
             </div>
           </div>
         </div>
