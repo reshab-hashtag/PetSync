@@ -2,62 +2,33 @@ const express = require('express');
 const router = express.Router();
 const petController = require('../controllers/petController');
 const { authenticate } = require('../middleware/auth');
-const { authorize } = require('../middleware/rbac');
-const { validatePet, validateMongoId } = require('../middleware/validation');
 
-// Create pet
-router.post('/',
-  authenticate,
-  authorize(['clients:write']),
-  validatePet,
-  petController.createPet
-);
 
-// Get pets
-router.get('/',
-  authenticate,
-  authorize(['clients:read']),
-  petController.getPets
-);
+// GET /api/pets - Get all pets for business
+router.get('/', authenticate, petController.getPets);
 
-// Get specific pet
-router.get('/:id',
-  authenticate,
-  authorize(['clients:read']),
-  validateMongoId('id'),
-  petController.getPet
-);
+// GET /api/pets/search - Search pets
+router.get('/search', petController.searchPets);
 
-// Update pet
-router.put('/:id',
-  authenticate,
-  authorize(['clients:write']),
-  validateMongoId('id'),
-  petController.updatePet
-);
+// GET /api/pets/stats - Get pet statistics
+router.get('/stats', petController.getPetStats);
 
-// Delete pet
-router.delete('/:id',
-  authenticate,
-  authorize(['clients:delete']),
-  validateMongoId('id'),
-  petController.deletePet
-);
+// GET /api/pets/:id - Get specific pet
+router.get('/:id', petController.getPetById);
 
-// Add medical record
-router.post('/:id/medical',
-  authenticate,
-  authorize(['clients:write']),
-  validateMongoId('id'),
-  petController.addMedicalRecord
-);
+// POST /api/pets - Create new pet
+router.post('/', authenticate,  petController.createPet);
 
-// Get pet's appointments
-router.get('/:id/appointments',
-  authenticate,
-  authorize(['appointments:read']),
-  validateMongoId('id'),
-  petController.getPetAppointments
-);
+// PUT /api/pets/:id - Update pet
+router.put('/:id',  petController.updatePet);
+
+// DELETE /api/pets/:id - Delete pet
+router.delete('/:id', petController.deletePet);
+
+// Medical Records
+router.post('/:id/medical-records', petController.addMedicalRecord);
+router.get('/:id/medical-records', petController.getMedicalRecords);
+router.put('/:id/medical-records/:recordId', petController.updateMedicalRecord);
+router.delete('/:id/medical-records/:recordId', petController.deleteMedicalRecord);
 
 module.exports = router;

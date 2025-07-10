@@ -5,6 +5,8 @@ import staffReducer from './slices/staffSlice';
 import businessReducer from './slices/businessSlice';
 import clientReducer from './slices/clientSlice';
 import businessCategoryReducer from './slices/businessCategorySlice';
+import appointmentReducer from './slices/appointmentSlice';
+import petsReducer from './slices/petSlice';
 import uiReducer from './slices/uiSlice';
 
 export const store = configureStore({
@@ -14,6 +16,8 @@ export const store = configureStore({
     staff: staffReducer,
     business: businessReducer,
     businessCategories: businessCategoryReducer,
+    appointments: appointmentReducer,
+    pets: petsReducer,
     client: clientReducer,
     ui: uiReducer,
   },

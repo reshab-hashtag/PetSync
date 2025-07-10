@@ -64,13 +64,13 @@ export const dashboardAPI = {
   getFinancialAnalytics: (params) => api.get('/dashboard/analytics/financial', { params }),
 };
 
-export const appointmentAPI = {
-  getAppointments: (params) => api.get('/appointments', { params }),
-  createAppointment: (data) => api.post('/appointments', data),
-  updateAppointment: (id, data) => api.put(`/appointments/${id}`, data),
-  deleteAppointment: (id) => api.delete(`/appointments/${id}`),
-  getAppointment: (id) => api.get(`/appointments/${id}`),
-};
+// export const appointmentAPI = {
+//   getAppointments: (params) => api.get('/appointments', { params }),
+//   createAppointment: (data) => api.post('/appointments', data),
+//   updateAppointment: (id, data) => api.put(`/appointments/${id}`, data),
+//   deleteAppointment: (id) => api.delete(`/appointments/${id}`),
+//   getAppointment: (id) => api.get(`/appointments/${id}`),
+// };
 
 export const petAPI = {
   getPets: (params) => api.get('/pets', { params }),
@@ -118,6 +118,161 @@ export const clientAPI = {
   toggleClientStatus: (id, isActive) => api.patch(`/admin/users/${id}/status`,  { isActive }),
 };
 
+
+// Appointment API
+export const appointmentAPI = {
+  // Create new appointment
+  createAppointment: async (appointmentData) => {
+    return await api.post('/appointments', appointmentData);
+  },
+
+  // Get appointments with filters
+  getAppointments: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key] && params[key] !== 'all') {
+        queryParams.append(key, params[key]);
+      }
+    });
+
+    return await api.get(`/appointments?${queryParams.toString()}`);
+  },
+
+  // Get single appointment
+  getAppointment: async (appointmentId) => {
+    return await api.get(`/appointments/${appointmentId}`);
+  },
+
+  // Update appointment
+  updateAppointment: async (appointmentId, appointmentData) => {
+    return await api.put(`/appointments/${appointmentId}`, appointmentData);
+  },
+
+  // Cancel appointment
+  cancelAppointment: async (appointmentId, data) => {
+    return await api.post(`/appointments/${appointmentId}/cancel`, data);
+  },
+
+  // Check-in appointment
+  checkinAppointment: async (appointmentId) => {
+    return await api.post(`/appointments/${appointmentId}/checkin`);
+  },
+
+  // Start service
+  startService: async (appointmentId) => {
+    return await api.post(`/appointments/${appointmentId}/start`);
+  },
+
+  // Complete service
+  completeService: async (appointmentId, data = {}) => {
+    return await api.post(`/appointments/${appointmentId}/complete`, data);
+  },
+
+  // Get appointment statistics
+  getAppointmentStats: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key]) {
+        queryParams.append(key, params[key]);
+      }
+    });
+
+    return await api.get(`/appointments/stats/overview?${queryParams.toString()}`);
+  },
+
+  // Get appointments by date range
+  getAppointmentsByDateRange: async (dateFrom, dateTo, businessId) => {
+    return await api.get(`/appointments`, {
+      params: { dateFrom, dateTo, businessId }
+    });
+  },
+
+  // Get appointments by client
+  getAppointmentsByClient: async (clientId, params = {}) => {
+    return await api.get(`/appointments`, {
+      params: { clientId, ...params }
+    });
+  },
+
+  // Get appointments by staff
+  getAppointmentsByStaff: async (staffId, params = {}) => {
+    return await api.get(`/appointments`, {
+      params: { staffId, ...params }
+    });
+  },
+
+  // Get today's appointments
+  getTodaysAppointments: async (businessId) => {
+    const today = new Date().toISOString().split('T')[0];
+    return await api.get(`/appointments`, {
+      params: { 
+        businessId, 
+        date: today,
+        status: 'scheduled,confirmed,in_progress'
+      }
+    });
+  },
+
+  // Get upcoming appointments
+  getUpcomingAppointments: async (businessId, days = 7) => {
+    const today = new Date();
+    const futureDate = new Date(today.getTime() + (days * 24 * 60 * 60 * 1000));
+    
+    return await api.get(`/appointments`, {
+      params: {
+        businessId,
+        dateFrom: today.toISOString().split('T')[0],
+        dateTo: futureDate.toISOString().split('T')[0],
+        status: 'scheduled,confirmed'
+      }
+    });
+  },
+
+  // Reschedule appointment
+  rescheduleAppointment: async (appointmentId, newDateTime) => {
+    return await api.put(`/appointments/${appointmentId}`, {
+      schedule: {
+        date: newDateTime.date,
+        startTime: newDateTime.startTime,
+        endTime: newDateTime.endTime
+      }
+    });
+  },
+
+  // Add notes to appointment
+  addAppointmentNotes: async (appointmentId, notes) => {
+    return await api.put(`/appointments/${appointmentId}`, {
+      details: { notes }
+    });
+  },
+
+  // Update appointment service details
+  updateAppointmentService: async (appointmentId, serviceData) => {
+    return await api.put(`/appointments/${appointmentId}`, {
+      service: serviceData
+    });
+  },
+
+  // Get appointment history for a pet
+  getPetAppointmentHistory: async (petId, params = {}) => {
+    return await api.get(`/pets/${petId}/appointments`, { params });
+  },
+
+  // Get appointment analytics
+  getAppointmentAnalytics: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    
+    Object.keys(params).forEach(key => {
+      if (params[key]) {
+        queryParams.append(key, params[key]);
+      }
+    });
+
+    return await api.get(`/dashboard/analytics/appointments?${queryParams.toString()}`);
+  }
+};
 
 
 // public search API

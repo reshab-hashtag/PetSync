@@ -34,7 +34,7 @@ const Sidebar = () => {
       name: 'Appointments',
       href: '/dashboard/appointments',
       icon: CalendarIcon,
-      roles: ['business_admin', 'staff']
+      roles: ['business_admin', 'staff', 'client']
     },
     {
       name: 'Clients',
@@ -46,7 +46,7 @@ const Sidebar = () => {
       name: 'Pets',
       href: '/dashboard/pets',
       icon: HeartIcon,
-      roles: ['business_admin', 'staff']
+      roles: ['business_admin', 'staff', 'client']
     },
     {
       name: 'Calendar',

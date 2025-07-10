@@ -21,6 +21,50 @@ const ensureUploadDirs = () => {
 // Initialize upload directories
 ensureUploadDirs();
 
+
+
+
+
+// ****************************************
+
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/pets/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+// File filter
+const fileFilter = (req, file, cb) => {
+  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, JPG, PNG, and GIF are allowed.'), false);
+  }
+};
+
+// Configure multer
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: fileFilter
+});
+
+// ****************************************
+
+
+
+
+
+
 // Storage configuration for avatars
 const avatarStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -97,5 +141,6 @@ const handleUploadError = (error, req, res, next) => {
 
 module.exports = {
   uploadAvatar,
+  upload,
   handleUploadError
 };
