@@ -12,6 +12,13 @@ class ServiceController {
     const { page = 1, limit = 20, search, category, isActive } = req.query;
     const { role, businessId, userId } = req.user;
 
+
+        if (role === ROLES.SUPER_ADMIN) {
+            return res.status(403).json({
+            success: false,
+            message: 'Access denied'
+            });
+        }
     // Build filter
     const filter = {};
     
@@ -30,7 +37,7 @@ class ServiceController {
         isActive: true
       }).select('_id');
       
-        const businessIds = userBusinesses.map(id => new mongoose.Types.ObjectId(id));
+    const businessIds = userBusinesses.map(id => new mongoose.Types.ObjectId(id));
       
       if (businessIds.length === 0) {
         // If business admin has no businesses, return empty result
@@ -91,12 +98,12 @@ class ServiceController {
     }
 
     // Execute query with pagination
-    const services = await Service.find()
-      .populate('business', 'profile.name profile.email')
-      .populate('staff', 'profile.firstName profile.lastName profile.email') // Updated to match new staff structure
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+   const services = await Service.find(filter)
+  .populate('business', 'profile.name profile.email')
+  .populate('staff', 'profile.firstName profile.lastName profile.email')
+  .sort({ createdAt: -1 })
+  .skip((page - 1) * limit)
+  .limit(parseInt(limit));
 
     // Get total count for pagination
     const total = await Service.countDocuments(filter);
@@ -161,7 +168,7 @@ class ServiceController {
       const serviceData = req.body;
       
       // Business access control
-      if (role === ROLES.SUPER_ADMIN) {
+      if (!role === ROLES.SUPER_ADMIN) {
         if (!serviceData.business) {
           return res.status(400).json({
             success: false,
@@ -315,7 +322,7 @@ class ServiceController {
       }
 
       // Check access permissions
-      if (role !== ROLES.BUSINESS_ADMIN && service.business.toString() !== businessId?.toString()) {
+      if (role !== ROLES.BUSINESS_ADMIN && role !== ROLES.SUPER_ADMIN && service.business.toString() !== businessId?.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied'

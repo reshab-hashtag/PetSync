@@ -65,7 +65,7 @@ const Sidebar = () => {
       name: 'Services',
       href: '/dashboard/services',
       icon: WrenchScrewdriverIcon,
-      roles: ['business_admin', 'super_admin'] // Only business admins and super admins can manage services
+      roles: ['business_admin'] // Only business admins and super admins can manage services
     },
     {
       name: 'Business Management', // Add this new navigation item

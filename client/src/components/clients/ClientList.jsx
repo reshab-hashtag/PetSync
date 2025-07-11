@@ -274,8 +274,8 @@ const ClientList = () => {
                               {client.profile?.avatar ? (
                                 <img
                                   className="h-10 w-10 rounded-full"
-                                  src={client.profile.avatar}
-                                  alt={`${client.profile.firstName} ${client.profile.lastName}`}
+                                  src={`http://localhost:5000${client.profile.avatar}`}
+                                  alt={`http://localhost:5000${client.profile.firstName} ${client.profile.lastName}`}
                                 />
                               ) : (
                                 <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
