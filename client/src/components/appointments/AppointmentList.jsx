@@ -143,6 +143,7 @@ const AppointmentList = () => {
   }
 
   return (
+    <div>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -452,6 +453,8 @@ const AppointmentList = () => {
           </div>
         </div>
       )}
+      
+    </div>
 
       {/* Create Appointment Modal */}
       <AppointmentCreateForm

@@ -27,6 +27,7 @@ import StaffList from './components/staff/StaffList.jsx';
 import BusinessList from './components/business/BusinessList.jsx';
 import SuperAdminCategories from './components/admin/SuperAdminCategories.jsx';
 import LandingDashboard from './pages/LandingDashboard.jsx';
+import ServiceManagement from './components/services/ServiceManagement.jsx';
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="staff" element={<StaffList />} />
               <Route path="businesses" element={<BusinessList />} />
+              <Route path="services" element={<ServiceManagement />} />
               <Route path="register-business-admin" element={<BusinessAdminRegistrationForm />} />
               <Route path="admin/categories" element={<SuperAdminCategories />} />
               {/* 404 under the dashboard layout */}

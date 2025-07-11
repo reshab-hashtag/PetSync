@@ -6,6 +6,7 @@ import businessReducer from './slices/businessSlice';
 import clientReducer from './slices/clientSlice';
 import businessCategoryReducer from './slices/businessCategorySlice';
 import appointmentReducer from './slices/appointmentSlice';
+import serviceReducer from './slices/serviceSlice';
 import petsReducer from './slices/petSlice';
 import uiReducer from './slices/uiSlice';
 
@@ -19,6 +20,7 @@ export const store = configureStore({
     appointments: appointmentReducer,
     pets: petsReducer,
     client: clientReducer,
+    services: serviceReducer,
     ui: uiReducer,
   },
   middleware: (getDefaultMiddleware) =>

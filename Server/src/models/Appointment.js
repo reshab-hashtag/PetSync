@@ -9,7 +9,7 @@ const AppointmentSchema = new mongoose.Schema({
   service: {
     id: { type: mongoose.Schema.Types.ObjectId, required: true },
     name: { type: String, required: true },
-    duration: { type: Number, required: true }, // minutes
+    duration: { type: Number, required: true },
     price: {
       amount: { type: Number, required: true },
       currency: { type: String, default: 'INR' }

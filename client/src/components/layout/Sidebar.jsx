@@ -15,6 +15,7 @@ import {
   UsersIcon,
   CurrencyDollarIcon,
   Squares2X2Icon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 
 const Sidebar = () => {
@@ -59,6 +60,12 @@ const Sidebar = () => {
       href: '/dashboard/staff',
       icon: UsersIcon,
       roles: ['business_admin'] // Only business admins can access staff management
+    },
+    {
+      name: 'Services',
+      href: '/dashboard/services',
+      icon: WrenchScrewdriverIcon,
+      roles: ['business_admin', 'super_admin'] // Only business admins and super admins can manage services
     },
     {
       name: 'Business Management', // Add this new navigation item

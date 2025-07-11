@@ -1,4 +1,5 @@
 import axios from 'axios';
+export { serviceAPI } from './serviceAPI';
 
 // Create axios instance
 const api = axios.create({

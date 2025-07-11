@@ -131,6 +131,235 @@ const validateOTPVerification = [
   }
 ];
 
+
+
+// Service creation validation
+const validateServiceCreation = [
+  body('name')
+    .notEmpty()
+    .withMessage('Service name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Service name must be between 2 and 100 characters')
+    .trim(),
+
+  body('description')
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage('Description cannot exceed 500 characters')
+    .trim(),
+
+  body('category')
+    .notEmpty()
+    .withMessage('Service category is required')
+    .isIn(['grooming', 'veterinary', 'boarding', 'training', 'daycare', 'other'])
+    .withMessage('Invalid service category'),
+
+  // Pricing validation
+  body('pricing.basePrice')
+    .notEmpty()
+    .withMessage('Base price is required')
+    .isFloat({ min: 0 })
+    .withMessage('Base price must be a positive number'),
+
+  body('pricing.currency')
+    .optional()
+    .isIn(['INR', 'USD', 'EUR', 'GBP'])
+    .withMessage('Invalid currency'),
+
+  body('pricing.priceType')
+    .optional()
+    .isIn(['fixed', 'variable'])
+    .withMessage('Price type must be either fixed or variable'),
+
+  body('pricing.variations')
+    .optional()
+    .isArray()
+    .withMessage('Price variations must be an array'),
+
+  body('pricing.variations.*.name')
+    .if(body('pricing.variations').exists())
+    .notEmpty()
+    .withMessage('Variation name is required')
+    .isLength({ max: 50 })
+    .withMessage('Variation name cannot exceed 50 characters'),
+
+  body('pricing.variations.*.price')
+    .if(body('pricing.variations').exists())
+    .isFloat({ min: 0 })
+    .withMessage('Variation price must be a positive number'),
+
+  // Duration validation
+  body('duration.estimated')
+    .notEmpty()
+    .withMessage('Estimated duration is required')
+    .isInt({ min: 15, max: 480 })
+    .withMessage('Duration must be between 15 minutes and 8 hours'),
+
+  body('duration.buffer')
+    .optional()
+    .isInt({ min: 0, max: 60 })
+    .withMessage('Buffer time must be between 0 and 60 minutes'),
+
+  // Requirements validation
+  body('requirements.vaccinationRequired')
+    .optional()
+    .isBoolean()
+    .withMessage('Vaccination required must be a boolean'),
+
+  body('requirements.requiredVaccines')
+    .optional()
+    .isArray()
+    .withMessage('Required vaccines must be an array'),
+
+  body('requirements.ageRestrictions.minAge')
+    .optional()
+    .isInt({ min: 0, max: 300 })
+    .withMessage('Minimum age must be between 0 and 300 months'),
+
+  body('requirements.ageRestrictions.maxAge')
+    .optional()
+    .isInt({ min: 0, max: 300 })
+    .withMessage('Maximum age must be between 0 and 300 months'),
+
+  body('requirements.specialRequirements')
+    .optional()
+    .isArray()
+    .withMessage('Special requirements must be an array'),
+
+  // Staff validation
+  body('staff')
+    .optional()
+    .isArray()
+    .withMessage('Staff must be an array'),
+
+  // body('staff.*.user')
+  //   .if(body('staff').exists())
+  //   .isMongoId()
+  //   .withMessage('Staff user ID must be a valid MongoDB ObjectId'),
+
+  // body('staff.*.skillLevel')
+  //   .if(body('staff').exists())
+  //   .isIn(['beginner', 'intermediate', 'expert'])
+  //   .withMessage('Skill level must be beginner, intermediate, or expert'),
+
+  // Middleware to check validation results
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    next();
+  }
+];
+
+// Service update validation (similar but with optional fields)
+const validateServiceUpdate = [
+  body('name')
+    .optional()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Service name must be between 2 and 100 characters')
+    .trim(),
+
+  body('description')
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage('Description cannot exceed 500 characters')
+    .trim(),
+
+  body('category')
+    .optional()
+    .isIn(['grooming', 'veterinary', 'boarding', 'training', 'daycare', 'other'])
+    .withMessage('Invalid service category'),
+
+  body('pricing.basePrice')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Base price must be a positive number'),
+
+  body('pricing.currency')
+    .optional()
+    .isIn(['INR', 'USD', 'EUR', 'GBP'])
+    .withMessage('Invalid currency'),
+
+  body('pricing.priceType')
+    .optional()
+    .isIn(['fixed', 'variable'])
+    .withMessage('Price type must be either fixed or variable'),
+
+  body('duration.estimated')
+    .optional()
+    .isInt({ min: 15, max: 480 })
+    .withMessage('Duration must be between 15 minutes and 8 hours'),
+
+  body('duration.buffer')
+    .optional()
+    .isInt({ min: 0, max: 60 })
+    .withMessage('Buffer time must be between 0 and 60 minutes'),
+
+  body('requirements.vaccinationRequired')
+    .optional()
+    .isBoolean()
+    .withMessage('Vaccination required must be a boolean'),
+
+  body('requirements.ageRestrictions.minAge')
+    .optional()
+    .isInt({ min: 0, max: 300 })
+    .withMessage('Minimum age must be between 0 and 300 months'),
+
+  body('requirements.ageRestrictions.maxAge')
+    .optional()
+    .isInt({ min: 0, max: 300 })
+    .withMessage('Maximum age must be between 0 and 300 months'),
+
+  body('staff.*.user')
+    .if(body('staff').exists())
+    .isMongoId()
+    .withMessage('Staff user ID must be a valid MongoDB ObjectId'),
+
+  body('staff.*.skillLevel')
+    .if(body('staff').exists())
+    .isIn(['beginner', 'intermediate', 'expert'])
+    .withMessage('Skill level must be beginner, intermediate, or expert'),
+
+  // Middleware to check validation results
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    next();
+  }
+];
+
+// Status toggle validation
+const validateStatusToggle = [
+  body('isActive')
+    .notEmpty()
+    .withMessage('isActive field is required')
+    .isBoolean()
+    .withMessage('isActive must be a boolean'),
+
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+    next();
+  }
+];
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
@@ -141,5 +370,8 @@ module.exports = {
   validateMongoId,
   handleValidationErrors,
   validateOTPRequest,
-  validateOTPVerification
+  validateOTPVerification,
+  validateServiceCreation,
+  validateServiceUpdate,
+  validateStatusToggle
 };

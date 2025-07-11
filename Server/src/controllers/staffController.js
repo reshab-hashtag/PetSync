@@ -405,6 +405,7 @@ async getAllStaffMembersEnhanced(req, res, next) {
         message: `Showing ${formattedStaff.length} staff members created by you`
       }
     });
+    
   } catch (error) {
     console.error('getMyCreatedStaff error:', error);
     next(error);

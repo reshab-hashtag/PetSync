@@ -34,6 +34,7 @@ const staffRoutes = require('./routes/staff');
 // const messageRoutes = require('./routes/messages');
 // const documentRoutes = require('./routes/documents');
 const clientRoutes = require('./routes/Client');
+const serviceRoutes =require('./routes/services')
 const businessCategoryRoutes = require('./routes/businessCategory');
 const dashboardRoutes = require('./routes/dashboard');
 const publicRoutes = require('./routes/publicRoutes');
@@ -102,6 +103,7 @@ app.use('/api/pets', petRoutes);
 // app.use('/api/invoices', invoiceRoutes);
 // app.use('/api/messages', messageRoutes);
 // app.use('/api/documents', documentRoutes);
+app.use('/api/services', serviceRoutes);
 app.use('/api/business-categories', businessCategoryRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/dashboard', dashboardRoutes);
