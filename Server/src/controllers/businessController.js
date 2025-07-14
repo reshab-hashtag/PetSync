@@ -365,7 +365,29 @@ async createBusiness(req, res, next) {
       const skip  = (page - 1) * limit;
 
       // 3) Determine which businesses this admin owns
-      const owned = req.user.userData?.business;
+
+
+        let owned;
+
+      // if they’re a CLIENT, pull from req.user.userData.business (or default to [])
+      if (req.user.role === ROLES.CLIENT) {
+        const doc = await User
+        .findById(req.user.userData.profile.createdBy)
+        .select('business')
+        .lean();        
+
+      // now pull out the array (or default to [] if it's missing)
+      const businessArray = doc.business || [];
+
+    
+       owned = businessArray;
+      } 
+      else {
+         owned = req.user.userData?.business || [];
+      }
+
+        
+      // owned is guaranteed to be an array
       if (!Array.isArray(owned) || owned.length === 0) {
         return res.status(400).json({
           success: false,

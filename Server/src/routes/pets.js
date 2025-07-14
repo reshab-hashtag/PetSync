@@ -23,7 +23,7 @@ router.post('/', authenticate,  petController.createPet);
 router.put('/:id',  petController.updatePet);
 
 // DELETE /api/pets/:id - Delete pet
-router.delete('/:id', petController.deletePet);
+router.delete('/:id',authenticate, petController.deletePet);
 
 // Medical Records
 router.post('/:id/medical-records', petController.addMedicalRecord);

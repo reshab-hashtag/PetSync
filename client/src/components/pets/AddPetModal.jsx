@@ -1,8 +1,9 @@
 // AddPetModal.jsx
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { XMarkIcon, HeartIcon, UserIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, HeartIcon, UserIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { createPet, updatePet } from '../../store/slices/petSlice';
+import { fetchBusinesses } from '../../store/slices/businessSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -10,9 +11,14 @@ const AddPetModal = ({ isOpen, onClose, onSuccess, clients, editPet = null }) =>
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { isLoading } = useSelector((state) => state.pets);
+  const { businesses, loading: businessesLoading } = useSelector((state) => state.business);
+
+  // Check if current user is a client
+  const isClientUser = user?.role === 'client';
 
   const [formData, setFormData] = useState({
     ownerId: '',
+    businessId: '', // Add businessId to form state
     profile: {
       name: '',
       species: 'dog',
@@ -41,10 +47,29 @@ const AddPetModal = ({ isOpen, onClose, onSuccess, clients, editPet = null }) =>
   const [medications, setMedications] = useState('');
   const [conditions, setConditions] = useState('');
 
+  // Auto-fill client details when modal opens for client users
+  useEffect(() => {
+    if (isOpen) {
+      // Fetch businesses for client selection
+      dispatch(fetchBusinesses({ page: 1, limit: 100 }));
+      
+      if (isClientUser && user) {
+        setFormData(prev => ({
+          ...prev,
+          ownerId: user._id || user.id
+        }));
+      }
+    }
+  }, [isOpen, isClientUser, user, dispatch]);
+
   useEffect(() => {
     if (editPet) {
+      const ownerId = editPet.owner._id || editPet.owner.id || editPet.owner;
+      
       setFormData({
-        ownerId: editPet.owner._id || editPet.owner.id,
+        // Auto-fill with current user ID if they're a client, otherwise use pet's owner
+        ownerId: isClientUser ? (user._id || user.id) : ownerId,
+        businessId: editPet.business || '', // Set business ID if available
         profile: {
           name: editPet.profile.name || '',
           species: editPet.profile.species || 'dog',
@@ -73,11 +98,12 @@ const AddPetModal = ({ isOpen, onClose, onSuccess, clients, editPet = null }) =>
       setMedications(editPet.medicalHistory?.medications?.join(', ') || '');
       setConditions(editPet.medicalHistory?.conditions?.join(', ') || '');
     }
-  }, [editPet]);
+  }, [editPet, isClientUser, user]);
 
   const resetForm = () => {
     setFormData({
-      ownerId: '',
+      ownerId: isClientUser ? (user._id || user.id) : '', // Keep client ID for client users
+      businessId: '', // Reset business selection
       profile: {
         name: '',
         species: 'dog',
@@ -140,10 +166,19 @@ const AddPetModal = ({ isOpen, onClose, onSuccess, clients, editPet = null }) =>
       return;
     }
 
+    // For clients, businessId is required
+    if (isClientUser && !formData.businessId) {
+      toast.error('Please select a business');
+      return;
+    }
+
     // Process medical history arrays
     const petData = {
       ...formData,
-      businessId: user?.business?.[0]?._id,
+      // Use selected businessId for clients, or fallback to user's business for business users
+      businessId: isClientUser 
+        ? formData.businessId 
+        : (user?.business?.[0]?._id || user?.userData?.business?.[0]?._id),
       medicalHistory: {
         ...formData.medicalHistory,
         allergies: allergies.split(',').map(item => item.trim()).filter(item => item),
@@ -197,30 +232,133 @@ const AddPetModal = ({ isOpen, onClose, onSuccess, clients, editPet = null }) =>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          {/* Business Selection for Clients */}
+          {isClientUser && (
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <BuildingOfficeIcon className="h-5 w-5 mr-2" />
+                Select Business
+              </h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Choose Business <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.businessId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, businessId: e.target.value }))}
+                  className="input-field"
+                  required
+                  disabled={businessesLoading}
+                >
+                  <option value="">Select a business...</option>
+                  {businesses?.map((business) => (
+                    <option key={business._id} value={business._id}>
+                      {business.profile?.name} - {business.profile?.address?.city || 'No location'}
+                    </option>
+                  ))}
+                </select>
+                {businessesLoading && (
+                  <p className="text-sm text-gray-500 mt-1 flex items-center">
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Loading businesses...
+                  </p>
+                )}
+                {!businessesLoading && businesses?.length === 0 && (
+                  <p className="text-sm text-red-500 mt-1">
+                    No businesses available. Please contact support.
+                  </p>
+                )}
+                <p className="text-sm text-blue-600 mt-1">
+                  Select the business where you want to register your pet for services.
+                </p>
+              </div>
+              
+              {/* Show selected business details */}
+              {formData.businessId && (
+                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-md p-4">
+                  {(() => {
+                    const selectedBusiness = businesses.find(b => b._id === formData.businessId);
+                    return selectedBusiness ? (
+                      <div className="flex items-start space-x-3">
+                        <BuildingOfficeIcon className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-blue-900">{selectedBusiness.profile?.name}</h4>
+                          {selectedBusiness.profile?.description && (
+                            <p className="text-sm text-blue-700 mt-1">{selectedBusiness.profile.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-4 mt-2 text-sm text-blue-600">
+                            {selectedBusiness.profile?.address && (
+                              <span className="flex items-center">
+                                📍 {selectedBusiness.profile.address.city}
+                              </span>
+                            )}
+                            {selectedBusiness.profile?.phone && (
+                              <span className="flex items-center">
+                                📞 {selectedBusiness.profile.phone}
+                              </span>
+                            )}
+                            {selectedBusiness.profile?.email && (
+                              <span className="flex items-center">
+                                ✉️ {selectedBusiness.profile.email}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Owner Selection */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
               <UserIcon className="h-5 w-5 mr-2" />
               Owner Information
             </h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Owner <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.ownerId}
-                onChange={(e) => setFormData(prev => ({ ...prev, ownerId: e.target.value }))}
-                className="input-field"
-                required
-              >
-                <option value="">Choose an owner...</option>
-                {clients.map((client) => (
-                  <option key={client._id || client.id} value={client._id || client.id}>
-                    {client.profile?.firstName || client.firstName} {client.profile?.lastName || client.lastName} - {client.profile?.email || client.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+            
+            {isClientUser ? (
+              // Show client info as read-only for client users
+              <div className="bg-gray-50 p-4 rounded-md border">
+                <div className="flex items-center space-x-3">
+                  <UserIcon className="h-5 w-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {user.profile?.firstName || user.firstName} {user.profile?.lastName || user.lastName}
+                    </p>
+                    <p className="text-sm text-gray-500">{user.profile?.email || user.email}</p>
+                    {(user.profile?.phone || user.phone) && (
+                      <p className="text-sm text-gray-500">📞 {user.profile?.phone || user.phone}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 mt-2">
+                  ✓ You are automatically set as the owner of this pet
+                </p>
+              </div>
+            ) : (
+              // Show dropdown for business admin/staff users
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Owner <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.ownerId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ownerId: e.target.value }))}
+                  className="input-field"
+                  required
+                >
+                  <option value="">Choose an owner...</option>
+                  {clients.map((client) => (
+                    <option key={client._id || client.id} value={client._id || client.id}>
+                      {client.profile?.firstName || client.firstName} {client.profile?.lastName || client.lastName} - {client.profile?.email || client.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Pet Profile */}

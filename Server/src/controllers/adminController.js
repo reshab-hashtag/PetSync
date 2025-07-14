@@ -1017,7 +1017,7 @@ async getUsers(req, res, next) {
       ? 'profile.name owner profile.contactInfo' 
       : 'profile.name';
 
-    console.log('Filter being applied:', filter);
+    // console.log('Filter being applied:', filter);
 
     const [users, total] = await Promise.all([
       User.find(filter)

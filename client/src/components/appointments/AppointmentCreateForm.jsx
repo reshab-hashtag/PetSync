@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { XMarkIcon, CalendarIcon, ClockIcon, UserIcon, PhoneIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CalendarIcon, ClockIcon, UserIcon, PhoneIcon, PlusIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { createAppointment, fetchAppointments } from '../../store/slices/appointmentSlice';
 import { fetchBusinesses } from '../../store/slices/businessSlice';
 import { getClients } from '../../store/slices/clientSlice';
-import { fetchServices } from '../../store/slices/serviceSlice'; // Add this import
+import { fetchServices } from '../../store/slices/serviceSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -13,7 +13,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useSelector((state) => state.auth);
   const { clients } = useSelector((state) => state.client);
   const { businesses } = useSelector(state => state.business);
-  const { services } = useSelector((state) => state.services); // Add services from state
+  const { services } = useSelector((state) => state.services);
   const { isLoading } = useSelector((state) => state.appointments);
 
   // Check if the current user is a client
@@ -21,10 +21,10 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
   // Keep the flat form structure for easier UI handling
   const [formData, setFormData] = useState({
-    businessId: isClientUser ? '' : (user?.business?.[0]?._id || ''),
+    businessId: '', // Always start empty to force selection
     clientId: '',
     petId: '',
-    serviceId: '', // Changed from serviceName to serviceId
+    serviceId: '',
     duration: 60,
     price: 0,
     date: '',
@@ -34,7 +34,8 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   });
 
   const [selectedClient, setSelectedClient] = useState(null);
-  const [selectedService, setSelectedService] = useState(null); // Add selected service state
+  const [selectedService, setSelectedService] = useState(null);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [availablePets, setAvailablePets] = useState([]);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClientData, setNewClientData] = useState({
@@ -50,21 +51,22 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
   useEffect(() => {
     if (isOpen) {
+      // Always fetch businesses for both client and business admin users
+      dispatch(fetchBusinesses());
+      
       // Only fetch clients if the user is not a client
-
-      if (isClientUser) {
-        const ownerId = typeof user.profile.createdBy === 'object'
-          ? user.profile.createdBy._id
-          : user.profile.createdBy;
-        dispatch(fetchBusinesses());
-      }
       if (!isClientUser) {
         dispatch(getClients());
       }
-      // Fetch available services
+    }
+  }, [isOpen, dispatch, isClientUser]);
+
+  // Fetch services when business is selected
+  useEffect(() => {
+    if (formData.businessId) {
       dispatch(fetchServices({ businessId: formData.businessId }));
     }
-  }, [isOpen, dispatch, isClientUser, formData.businessId]);
+  }, [formData.businessId, dispatch]);
 
   // Auto-select client if the current user is a client
   useEffect(() => {
@@ -100,19 +102,20 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
     return !value || value.toString().trim() === '';
   };
 
-  // Helper function to create full datetime from date and time
-  const createDateTime = (date, time) => {
-    if (!date || !time) return null;
-    return new Date(`${date}T${time}:00`);
-  };
-
-  // Helper function to calculate end time
-  const calculateEndTime = (startTime, duration) => {
-    if (!startTime || !duration) return null;
-
-    const startDate = new Date(startTime);
-    const endDate = new Date(startDate.getTime() + duration * 60000);
-    return endDate;
+  // Handle business selection
+  const handleBusinessChange = (businessId) => {
+    const business = businesses.find(b => b._id === businessId);
+    if (business) {
+      setSelectedBusiness(business);
+      setFormData(prev => ({
+        ...prev,
+        businessId: businessId,
+        serviceId: '', // Reset service when business changes
+        duration: 60,
+        price: 0
+      }));
+      setSelectedService(null);
+    }
   };
 
   // Handle service selection
@@ -131,7 +134,6 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
   const handleClientChange = (clientId) => {
     console.log('Selected client ID:', clientId);
-    // Use 'id' property instead of '_id' since you mentioned clients have 'id' property
     const client = clients.find(c => c.id === clientId || c._id === clientId);
     console.log('Found client:', client);
     setSelectedClient(client);
@@ -151,6 +153,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
     // Enhanced validation with specific field checking
     const requiredFields = [
+      { name: 'businessId', value: formData.businessId, label: 'Business' },
       { name: 'clientId', value: formData.clientId, label: 'Client' },
       { name: 'serviceId', value: formData.serviceId, label: 'Service' },
       { name: 'date', value: formData.date, label: 'Date' },
@@ -163,12 +166,6 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       const fieldNames = missingFields.map(field => field.label).join(', ');
       toast.error(`Please fill in: ${fieldNames}`);
       console.log('Missing fields:', missingFields);
-      return;
-    }
-
-    // Additional validation for business ID
-    if (!formData.businessId) {
-      toast.error('Business ID is missing. Please refresh and try again.');
       return;
     }
 
@@ -188,19 +185,18 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       serviceId: selectedService?._id || '',
       petId: petId,
       service: {
-        id: formData.serviceId, // Send the service ID
+        id: formData.serviceId,
         name: selectedService?.name || '',
         description: selectedService?.description || ''
       },
       duration: formData.duration,
       price: formData.price,
-      date: formData.date, // Send as string in YYYY-MM-DD format
-      startTime: formData.startTime, // Send as string in HH:MM format
+      date: formData.date,
+      startTime: formData.startTime,
       notes: formData.notes || '',
       specialRequests: formData.specialRequests || '',
       createdBy: user._id
     };
-
 
     console.log('Transformed appointment data to be sent:', appointmentData);
 
@@ -215,10 +211,10 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       toast.error(error.message || 'Failed to create appointment');
     }
   };
-  console.log(services, "gogogogogoogog")
+
   const resetForm = () => {
     setFormData({
-      businessId: user?.business?.[0]?._id || '',
+      businessId: '',
       clientId: isClientUser ? (user._id || user.id) : '',
       petId: '',
       serviceId: '',
@@ -236,6 +232,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
     }
 
     setSelectedService(null);
+    setSelectedBusiness(null);
 
     setShowNewClientForm(false);
     setNewClientData({
@@ -279,6 +276,60 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Business Selection - Show for both client and business admin users */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Business <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.businessId}
+              onChange={(e) => handleBusinessChange(e.target.value)}
+              className="input-field"
+              required
+            >
+              <option value="">Choose a business...</option>
+              {businesses?.map((business) => (
+                <option key={business._id} value={business._id}>
+                  {business.profile?.name || business.name}
+                  {business.profile?.address && ` - ${business.profile.address.city}`}
+                </option>
+              ))}
+            </select>
+            {businesses?.length === 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                No businesses available. Please contact support.
+              </p>
+            )}
+            {isClientUser && (
+              <p className="text-sm text-blue-600 mt-1">
+                Select the business where you want to book your appointment.
+              </p>
+            )}
+          </div>
+
+          {/* Business Details - Show when business is selected */}
+          {selectedBusiness && (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="flex items-start space-x-3">
+                <BuildingOfficeIcon className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-blue-900">{selectedBusiness.profile?.name}</h4>
+                  {selectedBusiness.profile?.description && (
+                    <p className="text-sm text-blue-700 mt-1">{selectedBusiness.profile.description}</p>
+                  )}
+                  {selectedBusiness.profile?.address && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      {selectedBusiness.profile.address.street}, {selectedBusiness.profile.address.city}
+                    </p>
+                  )}
+                  {selectedBusiness.profile?.phone && (
+                    <p className="text-sm text-blue-600">📞 {selectedBusiness.profile.phone}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Client Selection - Show differently for client users */}
           {isClientUser ? (
             <div className="space-y-4">
@@ -366,60 +417,40 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Service Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Service <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.serviceId}
-              onChange={(e) => handleServiceChange(e.target.value)}
-              className="input-field"
-              required
-            >
-              <option value="">Choose a service...</option>
-              {services?.map((service) => (
-                <option key={service._id} value={service._id}>
-                  {service.name} - ₹{service.pricing?.basePrice} ({service.duration?.estimated} mins)
-                </option>
-              )) || []}
-            </select>
-            {services?.services?.length === 0 && (
-              <p className="text-sm text-gray-500 mt-1">
-                No services available. Please contact the business to add services.
+          {/* Service Selection - Only show when business is selected */}
+          {formData.businessId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Service <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.serviceId}
+                onChange={(e) => handleServiceChange(e.target.value)}
+                className="input-field"
+                required
+              >
+                <option value="">Choose a service...</option>
+                {services?.map((service) => (
+                  <option key={service._id} value={service._id}>
+                    {service.name} - ₹{service.pricing?.basePrice} ({service.duration?.estimated} mins)
+                  </option>
+                )) || []}
+              </select>
+              {services?.length === 0 && (
+                <p className="text-sm text-gray-500 mt-1">
+                  No services available for this business. Please contact the business to add services.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!formData.businessId && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <p className="text-sm text-yellow-700">
+                Please select a business first to see available services.
               </p>
-            )}
-          </div>
-
-
-
-
-
-           {isClientUser && (
-           <div>
-             <label className="block text-sm font-medium text-gray-700 mb-2">
-               Select Business <span className="text-red-500">*</span>
-             </label>
-             <select
-               value={formData.businessId}
-               onChange={e => handleServiceChange(e.target.value)}
-               className="input-field w-full"
-               required
-             >
-               <option value="">Choose a business…</option>
-               {businesses.map(b => (
-                 <option key={b._id} value={b._id}>
-                   {b.profile.name}
-                 </option>
-               ))}
-             </select>
-             {businesses.length === 0 && (
-               <p className="text-sm text-red-500 mt-1">
-                 No businesses available. Please contact support.
-               </p>
-             )}
-           </div>
-         )}
+            </div>
+          )}
 
           {/* Service Details - Show when service is selected */}
           {selectedService && (
@@ -474,7 +505,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                readOnly={isClientUser || selectedService} // Read-only for clients or when service is selected
+                readOnly={selectedService} // Read-only when service is selected
               />
               {selectedService && (
                 <p className="text-xs text-gray-500 mt-1">Price set by selected service</p>

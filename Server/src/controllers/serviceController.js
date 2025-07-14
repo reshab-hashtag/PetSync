@@ -13,8 +13,6 @@ class ServiceController {
     const { role, businessId, userId,userData } = req.user;
     
 
-    console.log(req.user.userData.profile.createdBy)
-
 
   // 1) CLIENT: find all businesses owned by this client’s creator, then list services
     if (role === ROLES.CLIENT) {

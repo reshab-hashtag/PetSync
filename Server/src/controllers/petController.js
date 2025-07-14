@@ -14,22 +14,25 @@ const getBusinessId = (user) => {
   
   // Your structure: user.userData.business[0]._id
   if (user.userData && user.userData.business && user.userData.business.length > 0) {
-    businessId = user.userData.business[0]._id;
+    const business = user.userData.business[0];
+    businessId = typeof business === 'object' && business._id ? business._id : business;
     console.log('Found business ID from userData.business[0]._id:', businessId);
   }
   // Fallback: user.business[0]._id
-  else if (user.business && user.business.length > 0 && user.business[0]._id) {
-    businessId = user.business[0]._id;
+  else if (user.business && user.business.length > 0) {
+    const business = user.business[0];
+    businessId = typeof business === 'object' && business._id ? business._id : business;
     console.log('Found business ID from business[0]._id:', businessId);
   }
-  // Fallback: direct user ID
-  else if (user.userId) {
-    businessId = user.userId;
-    console.log('Using userId as fallback:', businessId);
+  // Fallback: direct businessId property
+  else if (user.businessId) {
+    businessId = user.businessId;
+    console.log('Found business ID from businessId:', businessId);
   }
-  else if (user.userData && user.userData.id) {
-    businessId = user.userData.id;
-    console.log('Using userData.id as fallback:', businessId);
+  // Fallback: direct user ID for clients
+  else if (user.userId && user.role === 'client') {
+    businessId = user.userId;
+    console.log('Using userId as fallback for client:', businessId);
   }
   
   console.log('Final businessId:', businessId);
@@ -40,6 +43,7 @@ const getBusinessId = (user) => {
 
 // Helper function to get all business IDs for a user
 function getAllBusinessIds(user) {
+  console.log(user)
   const bizArr = user.userData?.business || [];
   return bizArr.map(b => {
     // if it's a full document, grab ._id, otherwise it's already an ID
@@ -60,11 +64,7 @@ exports.getPets = async (req, res) => {
   try {
     const userId      = req.user.userId;
     const userRole    = req.user.role;
-    const businessIds = getAllBusinessIds(req.user);
-
-    console.log('User ID:', userId);
-    console.log('Business IDs:', businessIds);
-
+    const businessIds = req.user.userData.business;
     const page   = parseInt(req.query.page, 10) || 1;
     const limit  = parseInt(req.query.limit, 10) || 10;
     const skip   = (page - 1) * limit;
@@ -242,8 +242,6 @@ exports.getPetById = async (req, res) => {
 // @access  Private
 exports.createPet = async (req, res) => {
   try {
-    console.log('Create pet request body:', JSON.stringify(req.body, null, 2));
-    console.log('User object:', JSON.stringify(req.user, null, 2));
     
     // Check for validation errors
     const errors = validationResult(req);
@@ -256,7 +254,7 @@ exports.createPet = async (req, res) => {
     }
 
     const businessIds = getAllBusinessIds(req.user);
-    const userId = getUserId(req.user);
+    const userId =req.user.userId;
     
     if (!businessIds.length && !userId) {
       return res.status(400).json({
@@ -266,7 +264,8 @@ exports.createPet = async (req, res) => {
     }
 
     // Use the first business ID as the primary business (or let user specify)
-    const primaryBusinessId = req.body.businessId || businessIds[0];
+    const primaryBusinessId = req.body.businessId;
+    console.log( req.body.businessId)
 
     // Verify owner exists
     const owner = await User.findById(req.body.ownerId);
@@ -294,8 +293,6 @@ exports.createPet = async (req, res) => {
       emergencyContact: req.body.emergencyContact || {},
       createdBy: userId
     };
-
-    console.log('Pet data to create:', JSON.stringify(petData, null, 2));
 
     // Create the pet
     const pet = await Pet.create(petData);
@@ -346,8 +343,15 @@ exports.createPet = async (req, res) => {
 // Also update the deletePet function to remove pet ID from owner's pets array
 exports.deletePet = async (req, res) => {
   try {
-    const businessIds = getAllBusinessIds(req.user);
-    const userId = getUserId(req.user);
+    const businessObjects = req.user.userData.business || [];
+    const businessIds = businessObjects.map(business => 
+      typeof business === 'object' && business._id 
+        ? business._id.toString() 
+        : business.toString()
+    );
+    const userId = req.user.userId;
+
+    console.log(req.user.userData.business)
     
     if (!businessIds.length && !userId) {
       return res.status(400).json({
@@ -364,12 +368,12 @@ exports.deletePet = async (req, res) => {
         message: 'Pet not found'
       });
     }
-
     // Check if user has access to this pet
     const hasAccess = 
       (pet.business && businessIds.includes(pet.business.toString())) || 
-      (pet.createdBy && pet.createdBy.toString() === userId) ||
-      (pet.profile?.createdBy && pet.profile.createdBy.toString() === userId);
+      (pet.createdBy && pet.createdBy === userId);
+      
+      console.log(businessIds)
 
     if (!hasAccess) {
       return res.status(403).json({
