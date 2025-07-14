@@ -10,7 +10,86 @@ class ServiceController {
  async getServices(req, res, next) {
   try {
     const { page = 1, limit = 20, search, category, isActive } = req.query;
-    const { role, businessId, userId } = req.user;
+    const { role, businessId, userId,userData } = req.user;
+    
+
+    console.log(req.user.userData.profile.createdBy)
+
+
+  // 1) CLIENT: find all businesses owned by this client’s creator, then list services
+    if (role === ROLES.CLIENT) {
+      // Normalize ownerId
+      let ownerId = userData.profile.createdBy;
+      // if (typeof ownerId === 'object' && ownerId._id) {
+      //   ownerId = ownerId._id;
+      // }
+      // Get all business IDs for that owner
+      const owner = await User.findById(ownerId).select('business');
+  if (!owner) {
+    return res.status(404).json({
+      success: false,
+      message: 'Owner not found'
+    });
+  }
+
+  // 3) Extract their business array directly
+  const businessIds = Array.isArray(owner.business)
+    ? owner.business
+    : [];
+
+  if (!businessIds.length) {
+    return res.json({
+      success: true,
+      data: {
+        services: [],
+        pagination: { current: page, pages: 0, total: 0, hasNext: false, hasPrev: false }
+      }
+    });
+  }
+
+      // Build service filter for those businesses
+      const filter = { business: { $in: businessIds } };
+
+      // Apply optional search/category/isActive
+      if (search) {
+        filter.$or = [
+          { name:        { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } }
+        ];
+      }
+      if (category && category !== 'all') {
+        filter.category = category;
+      }
+      if (typeof isActive !== 'undefined') {
+        filter.isActive = isActive === 'true';
+      }
+
+      // Paginate & fetch
+      const skip = (page - 1) * limit;
+      const [ total, services ] = await Promise.all([
+        Service.countDocuments(filter),
+        Service.find(filter)
+          .populate('business', 'profile.name profile.email')
+          .populate('staff',    'profile.firstName profile.lastName profile.email')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+      ]);
+
+      return res.json({
+        success: true,
+        data: {
+          services,
+          pagination: {
+            current: page,
+            pages:   Math.ceil(total / limit),
+            total,
+            hasNext: page * limit < total,
+            hasPrev: page > 1
+          }
+        }
+      });
+    }
 
 
         if (role === ROLES.SUPER_ADMIN) {
@@ -67,7 +146,7 @@ class ServiceController {
         });
         }
 
-    } else if (role === ROLES.STAFF) {
+    } else if (role === ROLES.STAFF || role === ROLES.CLIENT) {
       // Staff can only see services from their assigned business
       filter.business = new mongoose.Types.ObjectId(businessId);
       

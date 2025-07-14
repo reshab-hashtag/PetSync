@@ -352,10 +352,10 @@ async createBusiness(req, res, next) {
  async getAllBusinesses(req, res, next) {
     try {
       // 1) Only BUSINESS_ADMIN may call this
-      if (req.user.role !== ROLES.BUSINESS_ADMIN) {
+      if (![ROLES.BUSINESS_ADMIN, ROLES.CLIENT].includes(req.user.role)) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied. Business admins only.'
+          message: 'Access denied. Only business admins and clients may access this.'
         });
       }
 

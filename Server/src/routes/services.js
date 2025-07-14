@@ -15,7 +15,7 @@ const { ROLES } = require('../config/constants');
 // Get all services
 router.get('/',
   authenticate,
-  requireRole([ROLES.BUSINESS_ADMIN, ROLES.STAFF, ROLES.SUPER_ADMIN]),
+  requireRole([ROLES.BUSINESS_ADMIN, ROLES.STAFF, ROLES.SUPER_ADMIN, ROLES.CLIENT]),
   serviceController.getServices
 );
 

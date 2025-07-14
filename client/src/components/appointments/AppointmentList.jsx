@@ -166,7 +166,7 @@ const AppointmentList = () => {
             <FunnelIcon className="h-5 w-5 mr-2" />
             Filters
           </button>
-          {(user?.role === 'business_admin' || user?.role === 'staff') && (
+          {(user?.role === 'business_admin' || user?.role === 'staff' || user?.role === 'client') && (
             <button
               onClick={() => setShowCreateForm(true)}
               className="btn-primary flex items-center"
