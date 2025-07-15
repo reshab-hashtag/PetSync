@@ -12,9 +12,9 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { clients } = useSelector((state) => state.client);
-  const { businesses } = useSelector(state => state.business);
+  const { businesses, loading: businessesLoading } = useSelector(state => state.business);
   const { services } = useSelector((state) => state.services);
-  const { isLoading } = useSelector((state) => state.appointments);
+  const { isLoading, isCreating } = useSelector((state) => state.appointments);
 
   // Check if the current user is a client
   const isClientUser = user?.role === 'client';
@@ -52,7 +52,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       // Always fetch businesses for both client and business admin users
-      dispatch(fetchBusinesses());
+      dispatch(fetchBusinesses({ page: 1, limit: 100 }));
       
       // Only fetch clients if the user is not a client
       if (!isClientUser) {
@@ -286,21 +286,36 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
               onChange={(e) => handleBusinessChange(e.target.value)}
               className="input-field"
               required
+              disabled={businessesLoading}
             >
-              <option value="">Choose a business...</option>
-              {businesses?.map((business) => (
+              <option value="">
+                {businessesLoading ? 'Loading businesses...' : 'Choose a business...'}
+              </option>
+              {!businessesLoading && businesses?.map((business) => (
                 <option key={business._id} value={business._id}>
                   {business.profile?.name || business.name}
                   {business.profile?.address && ` - ${business.profile.address.city}`}
                 </option>
               ))}
             </select>
-            {businesses?.length === 0 && (
-              <p className="text-sm text-gray-500 mt-1">
+            
+            {/* Loading indicator */}
+            {businessesLoading && (
+              <div className="flex items-center mt-2 text-sm text-gray-500">
+                <LoadingSpinner size="sm" className="mr-2" />
+                Loading businesses...
+              </div>
+            )}
+            
+            {/* No businesses message */}
+            {!businessesLoading && businesses?.length === 0 && (
+              <p className="text-sm text-red-500 mt-1">
                 No businesses available. Please contact support.
               </p>
             )}
-            {isClientUser && (
+            
+            {/* Helper text for clients */}
+            {isClientUser && !businessesLoading && (
               <p className="text-sm text-blue-600 mt-1">
                 Select the business where you want to book your appointment.
               </p>
@@ -552,10 +567,10 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isCreating || businessesLoading}
               className="btn-primary flex items-center"
             >
-              {isLoading ? (
+              {isCreating ? (
                 <>
                   <LoadingSpinner size="sm" className="mr-2" />
                   Creating...

@@ -211,7 +211,7 @@ class AppointmentController {
         dateTo,
         search,
         page = 1,
-        limit = 20
+        limit = 10
       } = req.query;
 
       const { userId, role } = req.user;

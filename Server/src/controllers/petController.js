@@ -62,12 +62,15 @@ const getUserId = (user) => {
 // @access  Private
 exports.getPets = async (req, res) => {
   try {
-    const userId      = req.user.userId;
-    const userRole    = req.user.role;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
     const businessIds = req.user.userData.business;
-    const page   = parseInt(req.query.page, 10) || 1;
-    const limit  = parseInt(req.query.limit, 10) || 10;
-    const skip   = (page - 1) * limit;
+    
+    // Handle pagination - if limit is 'all' or not provided, return all pets
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = req.query.limit === 'all' ? null : parseInt(req.query.limit, 10) || null;
+    const skip = limit ? (page - 1) * limit : 0;
+    
     const { search, species, status, owner } = req.query;
 
     // ==================== CLIENT LOGIC ====================
@@ -76,7 +79,7 @@ exports.getPets = async (req, res) => {
         path: 'pets',
         populate: [
           { path: 'createdBy', select: 'profile.firstName profile.lastName' },
-          { path: 'owner',     select: 'profile.firstName profile.lastName profile.email' },
+          { path: 'owner', select: 'profile.firstName profile.lastName profile.email' },
         ],
       });
 
@@ -87,7 +90,7 @@ exports.getPets = async (req, res) => {
         });
       }
 
-      // Apply filtering and pagination manually on user.pets
+      // Apply filtering manually on user.pets
       let filteredPets = user.pets;
 
       // Text search
@@ -109,16 +112,18 @@ exports.getPets = async (req, res) => {
       }
 
       const total = filteredPets.length;
-      const paginatedPets = filteredPets.slice(skip, skip + limit);
+      
+      // Apply pagination only if limit is specified
+      const paginatedPets = limit ? filteredPets.slice(skip, skip + limit) : filteredPets;
 
       return res.status(200).json({
         success: true,
         data: paginatedPets,
         pagination: {
-          page,
-          limit,
+          page: limit ? page : 1,
+          limit: limit || total,
           total,
-          totalPages: Math.ceil(total / limit)
+          totalPages: limit ? Math.ceil(total / limit) : 1
         }
       });
     }
@@ -145,32 +150,39 @@ exports.getPets = async (req, res) => {
       query.$and = query.$and || [];
       query.$and.push({
         $or: [
-          { 'profile.name':       { $regex: search, $options: 'i' } },
-          { 'profile.breed':      { $regex: search, $options: 'i' } },
-          { 'profile.microchipId':{ $regex: search, $options: 'i' } }
+          { 'profile.name': { $regex: search, $options: 'i' } },
+          { 'profile.breed': { $regex: search, $options: 'i' } },
+          { 'profile.microchipId': { $regex: search, $options: 'i' } }
         ]
       });
     }
     if (species && species !== 'all') query['profile.species'] = species;
-    if (status  && status  !== 'all') query.status = status;
-    if (owner   && userRole !== ROLES.CLIENT) query.owner = owner;
+    if (status && status !== 'all') query.status = status;
+    if (owner && userRole !== ROLES.CLIENT) query.owner = owner;
 
     const total = await Pet.countDocuments(query);
-    const pets = await Pet.find(query)
-      .populate('owner',     'profile.firstName profile.lastName profile.email')
+    
+    // Build the query with optional pagination
+    let petQuery = Pet.find(query)
+      .populate('owner', 'profile.firstName profile.lastName profile.email')
       .populate('createdBy', 'profile.firstName profile.lastName')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
+
+    // Apply pagination only if limit is specified
+    if (limit) {
+      petQuery = petQuery.skip(skip).limit(limit);
+    }
+
+    const pets = await petQuery;
 
     return res.status(200).json({
       success: true,
       data: pets,
       pagination: {
-        page,
-        limit,
+        page: limit ? page : 1,
+        limit: limit || total,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: limit ? Math.ceil(total / limit) : 1
       }
     });
   } catch (error) {
