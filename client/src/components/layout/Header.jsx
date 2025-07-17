@@ -63,8 +63,8 @@ const Header = () => {
   };
 
   return (
-    <div className="sticky top-0 z-40 lg:mx-auto lg:max-w-7xl lg:px-8">
-      <div className="flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
+ <div className="sticky top-0 z-40 bg-white bg-opacity-70 backdrop-blur-sm lg:mx-auto lg:max-w-7xl lg:px-8">
+      <div className="flex h-16 items-center gap-x-4 border-b border-gray-200  px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
         <button
           type="button"
           className="-m-2.5 p-2.5 text-gray-700 lg:hidden"

@@ -1,13 +1,14 @@
 const express = require('express');
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+// const helmet = require('helmet');
+// const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
 const socketIo = require('socket.io');
 const http = require('http');
 const path = require('path');
+// const CryptoJS = require('crypto-js');
 
 
 // import models 
@@ -47,6 +48,7 @@ const socketHandler = require('./socket/socketHandler');
 
 const app = express();
 const server = http.createServer(app);
+// const SECRET = "sdlkhzlkjfhvlzjkhdlvjkzbx,nb#$@^@$%^!&!$y2s01dfnzadfbnsjhk~!#%!#%Y&!Q%$Y"; 
 // app.use(cors({origin: process.env.FRONTEND_URLS?.split(',') || ['http://localhost:3000'], credentials: true}));
 const io = socketIo(server, {
   cors: {
@@ -54,6 +56,36 @@ const io = socketIo(server, {
     methods: ['GET', 'POST']
   }
 });
+
+
+// 1) Decrypt incoming payloads
+// app.use((req, res, next) => {
+//   if (req.body?.cipher) {
+//     try {
+//       const bytes = CryptoJS.AES.decrypt(req.body.cipher, SECRET);
+//       const plaintext = bytes.toString(CryptoJS.enc.Utf8);
+//       req.body = JSON.parse(plaintext);
+//     } catch (err) {
+//       return res.status(400).json({ message: 'Invalid encrypted payload' });
+//     }
+//   }
+//   next();
+// });
+
+
+
+// 3) Wrap res.json to encrypt all outgoing JSON
+// app.use((req, res, next) => {
+//   const _json = res.json.bind(res);
+//   res.json = (payload) => {
+//     const cipher = CryptoJS.AES.encrypt(
+//       JSON.stringify(payload),
+//       SECRET
+//     ).toString();
+//     return _json({ cipher });
+//   };
+//   next();
+// });
 
 // Security middleware
 // app.use(helmet({

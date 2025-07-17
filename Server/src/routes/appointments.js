@@ -39,7 +39,7 @@ router.put('/:id',
 // Cancel appointment
 router.post('/:id/cancel',
   authenticate,
-  authorize(['appointments:write']),
+  // authorize(['appointments:write']),
   validateMongoId('id'),
   appointmentController.cancelAppointment
 );
@@ -47,7 +47,7 @@ router.post('/:id/cancel',
 // Check-in appointment
 router.post('/:id/checkin',
   authenticate,
-  authorize(['appointments:write']),
+  // authorize(['appointments:write']),
   validateMongoId('id'),
   appointmentController.checkinAppointment
 );
@@ -55,7 +55,7 @@ router.post('/:id/checkin',
 // Start service
 router.post('/:id/start',
   authenticate,
-  authorize(['appointments:write']),
+  // authorize(['appointments:write']),
   validateMongoId('id'),
   appointmentController.startService
 );
@@ -63,7 +63,7 @@ router.post('/:id/start',
 // Complete service
 router.post('/:id/complete',
   authenticate,
-  authorize(['appointments:write']),
+  // authorize(['appointments:write']),
   validateMongoId('id'),
   appointmentController.completeService
 );

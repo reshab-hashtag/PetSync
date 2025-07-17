@@ -430,6 +430,7 @@ exports.deletePet = async (req, res) => {
 
 // Also update the updatePet function to handle owner changes
 exports.updatePet = async (req, res) => {
+  console.log('sjkgkjfbhvbfhbLefghbcbxjvbhzkjhxc')
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -440,9 +441,10 @@ exports.updatePet = async (req, res) => {
         errors: errors.array()
       });
     }
-
+    console.log(req.user)
     const businessIds = getAllBusinessIds(req.user);
     const userId = getUserId(req.user);
+
     
     if (!businessIds.length && !userId) {
       return res.status(400).json({

@@ -1,11 +1,95 @@
 import axios from 'axios';
+// import CryptoJS from 'crypto-js';
 export { serviceAPI } from './serviceAPI';
+
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://51.20.198.23:10000/api',
   timeout: 10000,
 });
+
+// const SECRET = "sdlkhzlkjfhvlzjkhdlvjkzbx,nb#$@^@$%^!&!$y2s01dfnzadfbnsjhk~!#%!#%Y&!Q%$Y";
+
+// // Define routes that should NOT be encrypted
+// const UNENCRYPTED_ROUTES = [
+//   '/auth/login',
+//   '/auth/register',
+//   '/otp/send-login-otp',
+//   '/otp/verify-login-otp',
+//   '/otp/send-registration-otp',
+//   '/otp/send-password-reset-otp',
+//   '/otp/verify-password-reset-otp',
+//   '/otp/resend-otp',
+//   '/health'
+// ];
+
+// // Helper function to check if route should be encrypted
+// const shouldEncrypt = (url) => {
+//   // Extract the path from the full URL
+//   const path = url.replace(api.defaults.baseURL, '').split('?')[0];
+//   return !UNENCRYPTED_ROUTES.some(route => path === route || path.startsWith(route));
+// };
+
+// // Helper functions
+// function encryptPayload(data) {
+//   return CryptoJS.AES.encrypt(JSON.stringify(data), SECRET).toString();
+// }
+
+// function decryptPayload(cipher) {
+//   const bytes = CryptoJS.AES.decrypt(cipher, SECRET);
+//   const json = bytes.toString(CryptoJS.enc.Utf8);
+//   return JSON.parse(json);
+// }
+
+// // REQUEST interceptor: add token + encrypt body (conditionally)
+// api.interceptors.request.use(
+//   (config) => {
+//     // 1) Attach auth header
+//     const token = localStorage.getItem('token');
+//     if (token) {
+//       config.headers.Authorization = `Bearer ${token}`;
+//     }
+
+//     // 2) Encrypt JSON body if present AND route should be encrypted
+//     if (config.data && shouldEncrypt(config.url)) {
+//       config.data = { cipher: encryptPayload(config.data) };
+//     }
+
+//     return config;
+//   },
+//   (error) => Promise.reject(error)
+// );
+
+// // RESPONSE interceptor: decrypt or handle 401 (conditionally)
+// api.interceptors.response.use(
+//   (response) => {
+//     // Decrypt payload if it's wrapped in { cipher: "..." } AND route should be encrypted
+//     if (response.data?.cipher && shouldEncrypt(response.config.url)) {
+//       response.data = decryptPayload(response.data.cipher);
+//     }
+//     return response;
+//   },
+//   (error) => {
+//     // On Unauthorized, clear storage and redirect
+//     if (error.response?.status === 401) {
+//       localStorage.removeItem('token');
+//       localStorage.removeItem('user');
+//       window.location.href = '/login';
+//     }
+//     return Promise.reject(error);
+//   }
+// );
+
+
+
+
+
+
+
+
+
+
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -33,6 +117,17 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+
+
+
+
+
+
+
+
+
+
 
 // API endpoints
 export const authAPI = {

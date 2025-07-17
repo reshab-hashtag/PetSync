@@ -20,7 +20,7 @@ router.get('/:id', petController.getPetById);
 router.post('/', authenticate,  petController.createPet);
 
 // PUT /api/pets/:id - Update pet
-router.put('/:id',  petController.updatePet);
+router.put('/:id', authenticate,  petController.updatePet);
 
 // DELETE /api/pets/:id - Delete pet
 router.delete('/:id',authenticate, petController.deletePet);

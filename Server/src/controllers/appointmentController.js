@@ -430,7 +430,10 @@ class AppointmentController {
       let hasAccess = false;
       
       if (role === ROLES.SUPER_ADMIN) {
-        hasAccess = true;
+      return res.status(404).json({
+          success: false,
+          message: 'You are not allowed!'
+        });
       } else if (role === ROLES.BUSINESS_ADMIN) {
         const userBusinesses = Array.isArray(req.user.userData?.business) 
           ? req.user.userData.business 
@@ -484,7 +487,10 @@ class AppointmentController {
       let hasAccess = false;
       
       if (role === ROLES.SUPER_ADMIN) {
-        hasAccess = true;
+       return res.status(404).json({
+          success: false,
+          message: 'You are not allowed!'
+        });
       } else if (role === ROLES.BUSINESS_ADMIN) {
         const userBusinesses = Array.isArray(req.user.userData?.business) 
           ? req.user.userData.business 
@@ -564,6 +570,7 @@ class AppointmentController {
 
       // Check permissions
       let hasAccess = false;
+      console.log(appointment.business._id)
       
       if (role === ROLES.SUPER_ADMIN) {
         hasAccess = true;
@@ -575,8 +582,10 @@ class AppointmentController {
         const businessIds = userBusinesses.map(b => 
           typeof b === 'object' ? b._id : b
         ).filter(Boolean);
+        console.log(businessIds)
         
-        hasAccess = businessIds.includes(appointment.business._id.toString());
+       hasAccess = businessIds.some(id => id.toString() === appointment.business._id.toString());
+
       } else if (role === ROLES.STAFF) {
         hasAccess = appointment.staff.assigned?.toString() === userId;
       } else if (role === ROLES.CLIENT) {
@@ -664,7 +673,10 @@ class AppointmentController {
       let hasAccess = false;
       
       if (role === ROLES.SUPER_ADMIN) {
-        hasAccess = true;
+        return res.status(404).json({
+          success: false,
+          message: 'You are not allowed!'
+        });
       } else if (role === ROLES.BUSINESS_ADMIN || role === ROLES.STAFF) {
         const userBusinesses = Array.isArray(req.user.userData?.business) 
           ? req.user.userData.business 
@@ -674,8 +686,9 @@ class AppointmentController {
           typeof b === 'object' ? b._id : b
         ).filter(Boolean);
         
-        hasAccess = businessIds.includes(appointment.business.toString()) ||
-                   appointment.staff.assigned?.toString() === userId;
+      hasAccess = businessIds.map(id => id.toString()).includes(appointment.business.toString()) ||
+                  appointment.staff.assigned?.toString() === userId;
+
       }
 
       if (!hasAccess) {
@@ -728,7 +741,10 @@ class AppointmentController {
       let hasAccess = false;
       
       if (role === ROLES.SUPER_ADMIN) {
-        hasAccess = true;
+      return res.status(404).json({
+          success: false,
+          message: 'You are not allowed!'
+        });
       } else if (role === ROLES.BUSINESS_ADMIN || role === ROLES.STAFF) {
         const userBusinesses = Array.isArray(req.user.userData?.business) 
           ? req.user.userData.business 
@@ -738,8 +754,9 @@ class AppointmentController {
           typeof b === 'object' ? b._id : b
         ).filter(Boolean);
         
-        hasAccess = businessIds.includes(appointment.business.toString()) ||
-                   appointment.staff.assigned?.toString() === userId;
+       hasAccess = businessIds.map(id => id.toString()).includes(appointment.business.toString()) ||
+                  appointment.staff.assigned?.toString() === userId;
+
       }
 
       if (!hasAccess) {
@@ -793,7 +810,10 @@ class AppointmentController {
       let hasAccess = false;
       
       if (role === ROLES.SUPER_ADMIN) {
-        hasAccess = true;
+        return res.status(404).json({
+          success: false,
+          message: 'You are not allowed!'
+        });
       } else if (role === ROLES.BUSINESS_ADMIN || role === ROLES.STAFF) {
         const userBusinesses = Array.isArray(req.user.userData?.business) 
           ? req.user.userData.business 
@@ -803,8 +823,9 @@ class AppointmentController {
           typeof b === 'object' ? b._id : b
         ).filter(Boolean);
         
-        hasAccess = businessIds.includes(appointment.business.toString()) ||
-                   appointment.staff.assigned?.toString() === userId;
+        hasAccess = businessIds.map(id => id.toString()).includes(appointment.business.toString()) ||
+                  appointment.staff.assigned?.toString() === userId;
+
       }
 
       if (!hasAccess) {
