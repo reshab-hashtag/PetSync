@@ -58,7 +58,7 @@ const ClientList = () => {
       status: filters.status,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      role: 'pet_owner' // Only fetch pet owners (clients)
+      role: 'pet_owner' 
     };
     dispatch(getClients(params));
   };

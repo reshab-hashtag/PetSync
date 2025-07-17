@@ -90,7 +90,10 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {renderDashboardByRole()}
+            <div>
+                {renderDashboardByRole()}
+            </div>
+
 
             {recentActivity && recentActivity.length > 0 && (
                 <div className="mt-8">
