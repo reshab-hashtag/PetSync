@@ -1,13 +1,15 @@
 import React from 'react';
 
 const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primary' }) => {
-  const colorClasses = {
-    primary: 'text-primary-600 bg-primary-100',
-    green: 'text-green-600 bg-green-100',
-    blue: 'text-blue-600 bg-blue-100',
-    yellow: 'text-yellow-600 bg-yellow-100',
-    red: 'text-red-600 bg-red-100',
-  };
+const colorClasses = {
+  primary: 'text-primary-600 bg-primary-100',
+  green: 'text-green-600 bg-green-100',
+  blue: 'text-blue-600 bg-blue-100',
+  yellow: 'text-yellow-600 bg-yellow-100',
+  red: 'text-red-600 bg-red-100',
+  purple: 'text-purple-600 bg-purple-100',
+  indigo: 'text-indigo-600 bg-indigo-100',
+};
 
   return (
     <div className="card">

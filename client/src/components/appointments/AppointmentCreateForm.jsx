@@ -7,6 +7,7 @@ import { getClients } from '../../store/slices/clientSlice';
 import { fetchServices } from '../../store/slices/serviceSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   const dispatch = useDispatch();
@@ -18,6 +19,8 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
   // Check if the current user is a client
   const isClientUser = user?.role === 'client';
+
+  const navigate = useNavigate();
 
   // Keep the flat form structure for easier UI handling
   const [formData, setFormData] = useState({
@@ -53,7 +56,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
     if (isOpen) {
       // Always fetch businesses for both client and business admin users
       dispatch(fetchBusinesses({ page: 1, limit: 100 }));
-      
+
       // Only fetch clients if the user is not a client
       if (!isClientUser) {
         dispatch(getClients());
@@ -298,7 +301,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
                 </option>
               ))}
             </select>
-            
+
             {/* Loading indicator */}
             {businessesLoading && (
               <div className="flex items-center mt-2 text-sm text-gray-500">
@@ -306,14 +309,14 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
                 Loading businesses...
               </div>
             )}
-            
+
             {/* No businesses message */}
             {!businessesLoading && businesses?.length === 0 && (
               <p className="text-sm text-red-500 mt-1">
                 No businesses available. Please contact support.
               </p>
             )}
-            
+
             {/* Helper text for clients */}
             {isClientUser && !businessesLoading && (
               <p className="text-sm text-blue-600 mt-1">
@@ -384,7 +387,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
                 </select>
                 <button
                   type="button"
-                  onClick={() => setShowNewClientForm(true)}
+                  onClick={() => navigate('/dashboard/clients')}
                   className="btn-secondary flex items-center whitespace-nowrap"
                 >
                   <PlusIcon className="h-4 w-4 mr-1" />

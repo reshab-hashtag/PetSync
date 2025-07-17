@@ -6,6 +6,7 @@ import ClientRegistrationForm from '../../components/clients/ClientRegistrationF
 import { fetchAppointments } from '../../store/slices/appointmentSlice'
 import { getClients } from '../../store/slices/clientSlice'
 import { fetchStaffMembersWithBusinesses } from '../../store/slices/staffSlice'
+import { useNavigate } from 'react-router-dom'
 
 const BusinessAdminDashboard = ({
     quickStats,
@@ -24,6 +25,7 @@ const BusinessAdminDashboard = ({
     const { staffMembers } = useSelector(state => state.staff);
     const { clients = [] } = useSelector((state) => state.client);
     const { user } = useSelector((state) => state.auth);
+    const navigate = useNavigate();
 
     // Modal states
     const [showCreateAppointment, setShowCreateAppointment] = useState(false);
@@ -94,9 +96,7 @@ const BusinessAdminDashboard = ({
 
     // Handle view today's appointments (you can implement navigation logic)
     const handleViewTodaysAppointments = () => {
-        // You can implement navigation to appointments page with today's filter
-        // For example: navigate('/appointments?date=today')
-        console.log('Navigate to today\'s appointments');
+           navigate('/dashboard/appointments');
     };
 
     return (

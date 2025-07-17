@@ -427,7 +427,7 @@ const AppointmentList = () => {
                       </td>
                       
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{appointment.service?.name || 'N/A'}</div>
+                        <div className="text-sm font-medium text-gray-900 w-fit">{appointment.service?.name || 'N/A'}</div>
                         <div className="text-sm text-gray-500 flex items-center space-x-2">
                           <span className="flex items-center">
                             <ClockIcon className="h-4 w-4 mr-1" />
@@ -443,9 +443,9 @@ const AppointmentList = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
                           <CalendarIcon className="h-4 w-4 mr-2 text-gray-400" />
-                          <div>
-                            <div className="font-medium">{formatDate(appointment.schedule?.startTime || appointment.date)}</div>
-                            <div className="text-gray-500">{formatTime(appointment.schedule?.startTime || appointment.startTime)}</div>
+                          <div className=''>
+                            <div className="font-medium w-fit">{formatDate(appointment.schedule?.startTime || appointment.date)}</div>
+                            <div className="text-gray-500 w-fit">{formatTime(appointment.schedule?.startTime || appointment.startTime)}</div>
                           </div>
                         </div>
                       </td>
