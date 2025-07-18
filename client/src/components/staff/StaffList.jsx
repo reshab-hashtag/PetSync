@@ -274,7 +274,7 @@ const StaffList = () => {
                             <UserIcon className="h-6 w-6 text-gray-600" />
                           </div>
                         </div>
-                        <div>
+                        <div className="flex flex-col items-start">
                           <div className="text-sm font-medium text-gray-900">
                             {staff.profile.firstName} {staff.profile.lastName}
                           </div>

@@ -451,7 +451,7 @@ const AppointmentList = () => {
                       </td>
                       
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
+                        <span className={`flex items-start w-fit px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
                           {getStatusIcon(appointment.status)}
                           <span className="ml-1 capitalize">{appointment.status.replace('_', ' ')}</span>
                         </span>
@@ -461,7 +461,7 @@ const AppointmentList = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-900">
                             <BuildingOfficeIcon className="h-4 w-4 mr-2 text-gray-400" />
-                            <div>
+                            <div className='flex flex-col items-start'>
                               <div className="font-medium">{appointment.business?.profile?.name || 'N/A'}</div>
                               <div className="text-gray-500">{appointment.business?.profile?.address?.city || 'N/A'}</div>
                             </div>

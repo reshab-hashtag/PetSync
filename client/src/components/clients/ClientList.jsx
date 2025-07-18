@@ -254,13 +254,13 @@ const ClientList = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Pets
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Joined
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -293,7 +293,7 @@ const ClientList = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap flex flex-col items-start">
                           <div className="text-sm text-gray-900">
                             {client.profile?.phone || 'No phone'}
                           </div>
@@ -304,7 +304,7 @@ const ClientList = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${client.isActive
+                          <span className={`flex items-start w-fit px-2 py-1 text-xs font-semibold rounded-full ${client.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
                             }`}>
@@ -319,7 +319,7 @@ const ClientList = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <RoleBasedAccess allowedRoles={['business_admin', 'staff']}>
-                            <div className="flex items-center justify-end space-x-2">
+                            <div className="flex items-center space-x-2 justify-center">
                               <button
                                 onClick={() => handleViewClient(client)}
                                 className="text-indigo-600 hover:text-indigo-900 p-1"

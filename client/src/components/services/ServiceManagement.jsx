@@ -244,7 +244,7 @@ const ServiceManagement = () => {
                     {services.map((service) => (
                       <tr key={service._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
+                          <div className="flex flex-col items-start">
                             <div className="text-sm font-medium text-gray-900">{service.name}</div>
                             {service.description && (
                               <div className="text-sm text-gray-500 truncate max-w-xs">
@@ -254,23 +254,23 @@ const ServiceManagement = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                          <span className="flex items-start w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
                             {service.category}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 flex items-start whitespace-nowrap text-sm text-gray-900">
                           {service.pricing.currency} {service.pricing.basePrice}
                           {service.pricing.priceType === 'variable' && (
                             <span className="text-gray-500 ml-1">(variable)</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-start">
                           {service.duration.estimated} min
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleStatus(service)}
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${service.isActive
+                            className={`flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${service.isActive
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                               }`}
