@@ -8,9 +8,10 @@ const mongoose = require('mongoose');
 class ServiceController {
   // Get all services for a business
  async getServices(req, res, next) {
-  try {
-    const { page = 1, limit = 20, search, category, isActive } = req.query;
-    const { role, businessId, userId,userData } = req.user;
+  try { 
+    const { page = 1, limit = 20, search, category, isActive, businessId } = req.query;
+    const { role, userId, userData } = req.user;
+
     
 
 
@@ -146,10 +147,12 @@ class ServiceController {
 
     } else if (role === ROLES.STAFF || role === ROLES.CLIENT) {
       // Staff can only see services from their assigned business
+      console.log(businessId)
+
       filter.business = new mongoose.Types.ObjectId(businessId);
       
       // Additionally, staff can only see services they are assigned to
-      filter.staff = userId;
+      // filter.staff = userId;
     } else {
       // Other roles (like CLIENT) cannot access services
       return res.status(403).json({

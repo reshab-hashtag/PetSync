@@ -88,9 +88,9 @@ const Calendar = () => {
 
     return {
       id: appointment._id,
-      title: `${appointment.pet?.name || 'Unknown Pet'} - ${appointment.service?.name || appointment.serviceType}`,
-      client: appointment.client?.name || appointment.clientName || 'Unknown Client',
-      pet: appointment.pet?.name || 'Unknown Pet',
+      title: `${appointment.pet?.profile.name || 'Unknown Pet'} - ${appointment.service?.name || appointment.serviceType}`,
+      client: appointment.client?.fullName || appointment.clientName || 'Unknown Client',
+      pet: appointment.pet?.profile.name || 'Unknown Pet',
       service: appointment.service?.name || appointment.serviceType || 'Service',
       startTime,
       endTime,
@@ -238,6 +238,8 @@ const Calendar = () => {
 
   const renderAppointmentsList = () => {
     const selectedDateAppointments = getAppointmentsForSelectedDate();
+
+    console.log(selectedDateAppointments)
 
     return (
       <div className="bg-white rounded-lg shadow">

@@ -984,13 +984,24 @@ async getUsers(req, res, next) {
     
     // Get current user ID from userData
     const currentUserId = req.user.userData?.id || req.user.userData?._id;
+    const staffCreatorId = req.user.userData?.profile?.createdBy;
 
     // Build filter
     const filter = {};
     
     // Add role filter if specified
     if (role) filter.role = role;
-  
+     // —— NEW: staff can only see clients of their business admin ——
+    if (req.user.userData.role === 'staff') {
+      filter.role = 'client';
+      filter['profile.createdBy'] = staffCreatorId;
+    }
+    // —— existing logic for clients, business_admin, super_admin, etc. ——
+    else {
+      if (role) {
+        filter.role = role;
+      }
+    }
     // This ensures business_admin only sees users they created
     if (req.user.userData.role === 'business_admin') {
       filter['profile.createdBy'] = currentUserId;
