@@ -214,7 +214,7 @@ class AppointmentController {
         limit = 10
       } = req.query;
 
-      const { userId, role } = req.user;
+      const { userId, role, userData } = req.user;
 
       // Build filter based on user role
       const filter = {};
@@ -244,12 +244,14 @@ class AppointmentController {
           filter.business = { $in: businessIds };
         }
       } else if (role === ROLES.STAFF) {
-        // Staff can see appointments for their assigned business
-        if (businessId) {
-          filter.business = businessId;
+
+        if (userData?.business) {
+          filter.business = userData?.business;
         } else {
           filter['staff.assigned'] = userId;
         }
+
+
       } else if (role === ROLES.CLIENT) {
         // Client can only see their own appointments
         filter.client = userId;

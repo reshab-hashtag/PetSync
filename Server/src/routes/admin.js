@@ -20,7 +20,7 @@ router.get('/dashboard',
 // ===================================
 router.get('/users', 
   authenticate, 
-  requireRole([ROLES.SUPER_ADMIN, ROLES.BUSINESS_ADMIN]), 
+  requireRole([ROLES.SUPER_ADMIN, ROLES.BUSINESS_ADMIN, ROLES.STAFF]), 
   adminController.getUsers
 );
 

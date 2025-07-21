@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import format from 'date-fns/format';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
@@ -7,6 +7,11 @@ import eachDayOfInterval from 'date-fns/eachDayOfInterval';
 import isSameMonth from 'date-fns/isSameMonth';
 import isToday from 'date-fns/isToday';
 import isSameDay from 'date-fns/isSameDay';
+import { 
+  fetchAppointments, 
+  selectAppointments, 
+  selectAppointmentLoading 
+} from '../../store/slices/appointmentSlice';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -17,72 +22,90 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Calendar = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const appointments = useSelector(selectAppointments);
+  const isLoading = useSelector(selectAppointmentLoading);
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [appointments, setAppointments] = useState([]);
   const [view, setView] = useState('month'); // month, week, day
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
 
+  // Fetch appointments on component mount
   useEffect(() => {
-    // Mock appointments data
-    const mockAppointments = [
-      {
-        id: '1',
-        title: 'Buddy - Grooming',
-        client: 'John Doe',
-        pet: 'Buddy',
-        service: 'Grooming',
-        startTime: new Date(2025, 5, 26, 10, 0),
-        endTime: new Date(2025, 5, 26, 11, 0),
-        status: 'confirmed',
-        color: 'bg-blue-500'
-      },
-      {
-        id: '2',
-        title: 'Whiskers - Checkup',
-        client: 'Jane Smith',
-        pet: 'Whiskers',
-        service: 'Veterinary Checkup',
-        startTime: new Date(2025, 5, 26, 14, 30),
-        endTime: new Date(2025, 5, 26, 15, 0),
-        status: 'pending',
-        color: 'bg-yellow-500'
-      },
-      {
-        id: '3',
-        title: 'Max - Training',
-        client: 'Robert Johnson',
-        pet: 'Max',
-        service: 'Obedience Training',
-        startTime: new Date(2025, 5, 27, 9, 0),
-        endTime: new Date(2025, 5, 27, 10, 0),
-        status: 'confirmed',
-        color: 'bg-green-500'
-      },
-      {
-        id: '4',
-        title: 'Luna - Vaccination',
-        client: 'Sarah Wilson',
-        pet: 'Luna',
-        service: 'Annual Vaccination',
-        startTime: new Date(2025, 5, 28, 11, 0),
-        endTime: new Date(2025, 5, 28, 11, 30),
-        status: 'confirmed',
-        color: 'bg-purple-500'
-      }
-    ];
-    setAppointments(mockAppointments);
-  }, []);
+    if (user) {
+      dispatch(fetchAppointments({
+        limit: 100, // Fetch more appointments for calendar view
+        // You can add date filters here if needed
+      }));
+    }
+  }, [dispatch, user]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
+  // Transform Redux appointment data to match calendar format
+  const transformAppointmentData = (appointment) => {
+    // Handle different date/time formats from the API
+    let startTime, endTime;
+    
+    if (appointment.schedule?.startTime) {
+      startTime = new Date(appointment.schedule.startTime);
+    } else if (appointment.schedule?.date && appointment.schedule?.time) {
+      startTime = new Date(`${appointment.schedule.date}T${appointment.schedule.time}`);
+    } else if (appointment.date && appointment.time) {
+      startTime = new Date(`${appointment.date}T${appointment.time}`);
+    } else {
+      startTime = new Date(appointment.createdAt);
+    }
+
+    if (appointment.schedule?.endTime) {
+      endTime = new Date(appointment.schedule.endTime);
+    } else {
+      // If no end time, assume 30 minutes duration
+      endTime = new Date(startTime.getTime() + 30 * 60000);
+    }
+
+    // Determine status color
+    const getStatusColor = (status) => {
+      switch (status) {
+        case 'confirmed':
+          return 'bg-green-500';
+        case 'pending':
+          return 'bg-yellow-500';
+        case 'in_progress':
+          return 'bg-blue-500';
+        case 'completed':
+          return 'bg-purple-500';
+        case 'cancelled':
+          return 'bg-red-500';
+        default:
+          return 'bg-gray-500';
+      }
+    };
+
+    return {
+      id: appointment._id,
+      title: `${appointment.pet?.name || 'Unknown Pet'} - ${appointment.service?.name || appointment.serviceType}`,
+      client: appointment.client?.name || appointment.clientName || 'Unknown Client',
+      pet: appointment.pet?.name || 'Unknown Pet',
+      service: appointment.service?.name || appointment.serviceType || 'Service',
+      startTime,
+      endTime,
+      status: appointment.status || 'pending',
+      color: getStatusColor(appointment.status),
+      originalAppointment: appointment
+    };
+  };
+
   const getAppointmentsForDate = (date) => {
-    return appointments.filter(appointment => 
-      isSameDay(appointment.startTime, date)
-    );
+    if (!appointments || appointments.length === 0) return [];
+    
+    return appointments
+      .map(transformAppointmentData)
+      .filter(appointment => isSameDay(appointment.startTime, date));
   };
 
   const getAppointmentsForSelectedDate = () => {
@@ -104,6 +127,7 @@ const Calendar = () => {
     setCurrentDate(today);
     setSelectedDate(today);
   };
+  
 
   const renderCalendarGrid = () => {
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -227,7 +251,12 @@ const Calendar = () => {
         </div>
 
         <div className="p-4">
-          {selectedDateAppointments.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading appointments...</p>
+            </div>
+          ) : selectedDateAppointments.length === 0 ? (
             <div className="text-center py-8">
               <CalendarDaysIcon className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No appointments</h3>
@@ -260,6 +289,9 @@ const Calendar = () => {
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                         appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        appointment.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                        appointment.status === 'completed' ? 'bg-purple-100 text-purple-800' :
+                        appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {appointment.status}
@@ -282,6 +314,26 @@ const Calendar = () => {
       </div>
     );
   };
+
+  // Calculate stats from Redux appointments
+  const todaysAppointments = appointments ? appointments.filter(appointment => {
+    const today = new Date();
+    let appointmentDate;
+    
+    if (appointment.schedule?.startTime) {
+      appointmentDate = new Date(appointment.schedule.startTime);
+    } else if (appointment.schedule?.date) {
+      appointmentDate = new Date(appointment.schedule.date);
+    } else if (appointment.date) {
+      appointmentDate = new Date(appointment.date);
+    } else {
+      return false;
+    }
+    
+    return isSameDay(appointmentDate, today);
+  }) : [];
+
+  const pendingAppointments = appointments ? appointments.filter(apt => apt.status === 'pending') : [];
 
   return (
     <div className="space-y-6">
@@ -336,7 +388,7 @@ const Calendar = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Today's Appointments</p>
               <p className="text-2xl font-bold text-gray-900">
-                {getAppointmentsForDate(new Date()).length}
+                {todaysAppointments.length}
               </p>
             </div>
           </div>
@@ -350,7 +402,9 @@ const Calendar = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">This Week</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {appointments ? appointments.length : 0}
+              </p>
             </div>
           </div>
         </div>
@@ -364,7 +418,7 @@ const Calendar = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Pending</p>
               <p className="text-2xl font-bold text-gray-900">
-                {appointments.filter(apt => apt.status === 'pending').length}
+                {pendingAppointments.length}
               </p>
             </div>
           </div>
@@ -377,8 +431,10 @@ const Calendar = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">This Month</p>
-              <p className="text-2xl font-bold text-gray-900">{appointments.length}</p>
+              <p className="text-sm font-medium text-gray-500">Total</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {appointments ? appointments.length : 0}
+              </p>
             </div>
           </div>
         </div>
