@@ -245,11 +245,11 @@ class AppointmentController {
         }
       } else if (role === ROLES.STAFF) {
 
-        if (userData?.business) {
-          filter.business = userData?.business;
-        } else {
+        // if (userData?.business) {
+        //   filter.business = userData?.business;
+        // } else {
           filter['staff.assigned'] = userId;
-        }
+        // }
 
 
       } else if (role === ROLES.CLIENT) {
@@ -871,6 +871,363 @@ class AppointmentController {
       next(error);
     }
   }
+
+
+
+
+
+
+
+
+
+// Assign staff to appointment
+async assignStaffToAppointment(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { staffId } = req.body;
+    const { userId, role } = req.user;
+
+    // Validate required fields
+    if (!staffId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Staff ID is required'
+      });
+    }
+
+    // Find the appointment
+    const appointment = await Appointment.findById(id)
+      .populate('business', 'profile staff')
+      .populate('client', 'profile')
+      .populate('pet', 'profile');
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    // Check permissions - only business admin can assign staff
+    if (role !== ROLES.BUSINESS_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only business admins can assign staff.'
+      });
+    }
+
+    // Verify business admin owns this business
+    const userBusinesses = Array.isArray(req.user.userData?.business) 
+      ? req.user.userData.business 
+      : [req.user.userData?.business];
+    
+    const businessIds = userBusinesses.map(b => 
+      typeof b === 'object' ? b._id : b
+    ).filter(Boolean);
+
+
+    console.log('Business IDs:', businessIds);
+    console.log('Appointment Business ID:', appointment.business._id.toString());
+    
+    const allowed = businessIds.some(id => id.equals(appointment.business._id.toString()));
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this business'
+      });
+    }
+
+    // Verify staff member exists and belongs to the business
+    const staffMember = await User.findById(staffId);
+    if (!staffMember || staffMember.role !== ROLES.STAFF) {
+      return res.status(404).json({
+        success: false,
+        message: 'Staff member not found'
+      });
+    }
+
+    // Check if staff member is assigned to this business
+    if (!appointment.business.staff.includes(staffId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Staff member is not assigned to this business'
+      });
+    }
+
+    // Check if staff member is active
+    if (!staffMember.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Staff member is not active'
+      });
+    }
+
+    // Check for scheduling conflicts (optional - staff might handle multiple appointments)
+    const startTime = appointment.schedule.startTime;
+    const endTime = appointment.schedule.endTime;
+    
+    const conflictingAppointment = await Appointment.findOne({
+      'staff.assigned': staffId,
+      'schedule.startTime': { $lt: endTime },
+      'schedule.endTime': { $gt: startTime },
+      status: { $in: [APPOINTMENT_STATUS.SCHEDULED, APPOINTMENT_STATUS.CONFIRMED, APPOINTMENT_STATUS.IN_PROGRESS] },
+      _id: { $ne: id } // Exclude current appointment
+    });
+
+    if (conflictingAppointment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Staff member has a scheduling conflict during this time'
+      });
+    }
+
+    // Update appointment with staff assignment
+    appointment.staff = {
+      assigned: staffId,
+      assignedAt: new Date(),
+      // assignedBy: userId
+    };
+
+    // Update status if it was pending staff assignment
+    if (appointment.status === APPOINTMENT_STATUS.STAFF_ASSIGNMENT_PENDING) {
+      appointment.status = APPOINTMENT_STATUS.CONFIRMED;
+    }
+
+    await appointment.save();
+
+    // Populate for response
+    await appointment.populate([
+      { path: 'staff.assigned', select: 'profile role' },
+      // { path: 'staff.assignedBy', select: 'profile' }
+    ]);
+
+    // Send notification email to staff member
+    try {
+      await sendEmail({
+        to: staffMember.profile.email,
+        subject: 'New Appointment Assignment - PetSync',
+        template: 'staff-appointment-assignment',
+        data: {
+          staffName: `${staffMember.profile.firstName} ${staffMember.profile.lastName}`,
+          clientName: `${appointment.client.profile.firstName} ${appointment.client.profile.lastName}`,
+          petName: appointment.pet.profile.name,
+          serviceName: appointment.service.name,
+          date: appointment.schedule.startTime.toLocaleDateString(),
+          time: appointment.schedule.startTime.toLocaleTimeString(),
+          businessName: appointment.business.profile.name,
+          appointmentId: appointment._id
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to send staff assignment email:', emailError);
+    }
+
+    // Log activity
+    await auditService.log({
+      user: userId,
+      business: appointment.business._id,
+      action: 'UPDATE',
+      resource: 'appointment',
+      resourceId: appointment._id,
+      details: {
+        action: 'staff_assigned',
+        staffId: staffId,
+        staffName: `${staffMember.profile.firstName} ${staffMember.profile.lastName}`,
+        appointmentId: appointment._id
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Staff assigned successfully',
+      data: { appointment }
+    });
+  } catch (error) {
+    console.error('Assign staff error:', error);
+    next(error);
+  }
+}
+
+// Unassign staff from appointment
+async unassignStaffFromAppointment(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { userId, role } = req.user;
+
+    // Find the appointment
+    const appointment = await Appointment.findById(id)
+      .populate('business', 'profile')
+      .populate('staff.assigned', 'profile');
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    // Check permissions
+    if (role !== ROLES.BUSINESS_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only business admins can unassign staff.'
+      });
+    }
+
+    // Verify business ownership
+    const userBusinesses = Array.isArray(req.user.userData?.business) 
+      ? req.user.userData.business 
+      : [req.user.userData?.business];
+    
+    const businessIds = userBusinesses.map(b => 
+      typeof b === 'object' ? b._id : b
+    ).filter(Boolean);
+    
+    if (!businessIds.includes(appointment.business._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this business'
+      });
+    }
+
+    // Check if staff is currently assigned
+    if (!appointment.staff?.assigned) {
+      return res.status(400).json({
+        success: false,
+        message: 'No staff currently assigned to this appointment'
+      });
+    }
+
+    // Store previous assignment for logging
+    const previousStaff = appointment.staff.assigned;
+
+    // Remove staff assignment
+    appointment.staff = {
+      assigned: null,
+      assignedAt: null,
+      assignedBy: null
+    };
+
+    // Update status to pending if appointment is not in progress or completed
+    if ([APPOINTMENT_STATUS.SCHEDULED, APPOINTMENT_STATUS.CONFIRMED].includes(appointment.status)) {
+      appointment.status = APPOINTMENT_STATUS.STAFF_ASSIGNMENT_PENDING;
+    }
+
+    await appointment.save();
+
+    // Log activity
+    await auditService.log({
+      user: userId,
+      business: appointment.business._id,
+      action: 'UPDATE',
+      resource: 'appointment',
+      resourceId: appointment._id,
+      details: {
+        action: 'staff_unassigned',
+        previousStaffId: previousStaff._id,
+        previousStaffName: `${previousStaff.profile.firstName} ${previousStaff.profile.lastName}`,
+        appointmentId: appointment._id
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Staff unassigned successfully',
+      data: { appointment }
+    });
+  } catch (error) {
+    console.error('Unassign staff error:', error);
+    next(error);
+  }
+}
+
+// Get available staff for appointment
+async getAvailableStaffForAppointment(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { userId, role } = req.user;
+
+    // Find the appointment
+    const appointment = await Appointment.findById(id).populate('business', 'staff');
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    // Check permissions
+    if (role !== ROLES.BUSINESS_ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Verify business ownership
+    const userBusinesses = Array.isArray(req.user.userData?.business) 
+      ? req.user.userData.business 
+      : [req.user.userData?.business];
+    
+    const businessIds = userBusinesses.map(b => 
+      typeof b === 'object' ? b._id : b
+    ).filter(Boolean);
+    
+    if (!businessIds.includes(appointment.business._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this business'
+      });
+    }
+
+    const startTime = appointment.schedule.startTime;
+    const endTime = appointment.schedule.endTime;
+
+    // Get all staff members for this business
+    const allStaff = await User.find({
+      _id: { $in: appointment.business.staff },
+      role: ROLES.STAFF,
+      isActive: true
+    }).select('profile role isActive');
+
+    // Check availability for each staff member
+    const availableStaff = [];
+    for (const staff of allStaff) {
+      const conflictingAppointment = await Appointment.findOne({
+        'staff.assigned': staff._id,
+        'schedule.startTime': { $lt: endTime },
+        'schedule.endTime': { $gt: startTime },
+        status: { $in: [APPOINTMENT_STATUS.SCHEDULED, APPOINTMENT_STATUS.CONFIRMED, APPOINTMENT_STATUS.IN_PROGRESS] },
+        _id: { $ne: id }
+      });
+
+      availableStaff.push({
+        ...staff.toObject(),
+        isAvailable: !conflictingAppointment,
+        conflictReason: conflictingAppointment ? 'Has conflicting appointment' : null
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { 
+        staff: availableStaff,
+        appointment: {
+          _id: appointment._id,
+          startTime: appointment.schedule.startTime,
+          endTime: appointment.schedule.endTime
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get available staff error:', error);
+    next(error);
+  }
+}
+
+
+
+
 }
 
 module.exports = new AppointmentController();

@@ -367,6 +367,26 @@ export const appointmentAPI = {
     });
 
     return await api.get(`/dashboard/analytics/appointments?${queryParams.toString()}`);
+  },
+
+  // Add this new method to your existing appointmentAPI object
+  assignStaff: async (appointmentId, staffId) => {
+    console.log(appointmentId)
+    return await api.put(`/appointments/${appointmentId}/assign-staff`, { staffId });
+  },
+
+  // You can also add these related methods for complete staff management
+  unassignStaff: async (appointmentId) => {
+    return await api.put(`/appointments/${appointmentId}/unassign-staff`);
+  },
+
+  reassignStaff: async (appointmentId, newStaffId) => {
+    return await api.put(`/appointments/${appointmentId}/reassign-staff`, { staffId: newStaffId });
+  },
+
+  // Get available staff for appointment
+  getAvailableStaff: async (appointmentId, params = {}) => {
+    return await api.get(`/appointments/${appointmentId}/available-staff`, { params });
   }
 };
 

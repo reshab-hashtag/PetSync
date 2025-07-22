@@ -19,6 +19,20 @@ export const createAppointment = createAsyncThunk(
   }
 );
 
+// Add this new async thunk to your existing appointmentSlice.js file
+export const assignStaffToAppointment = createAsyncThunk(
+  'appointments/assignStaff',
+  async ({ appointmentId, staffId }, { rejectWithValue }) => {
+    console.log(appointmentId)
+    try {
+      const response = await appointmentAPI.assignStaff(appointmentId, staffId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to assign staff');
+    }
+  }
+);
+
 export const fetchAppointments = createAsyncThunk(
   'appointments/fetchAppointments',
   async (params = {}, { rejectWithValue }) => {
@@ -140,6 +154,7 @@ const initialState = {
     staffId: ''
   },
   isLoading: false,
+  loading: false,
   isCreating: false,
   isUpdating: false,
   error: null
@@ -281,7 +296,51 @@ const appointmentSlice = createSlice({
       })
       .addCase(fetchAppointmentStats.rejected, (state, action) => {
         state.error = action.payload;
-      });
+      })
+
+
+      // Assign staff to appointment
+      .addCase(assignStaffToAppointment.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+     .addCase(assignStaffToAppointment.fulfilled, (state, action) => {
+      state.loading = false;
+      state.isUpdating = false; 
+      
+      // Try different possible response structures
+      let updatedAppointment = null;
+      
+      if (action.payload?.data?.appointment) {
+        updatedAppointment = action.payload.data.appointment;
+      } else if (action.payload?.appointment) {
+        updatedAppointment = action.payload.appointment;
+      } else if (action.payload?._id) {
+        updatedAppointment = action.payload;
+      }
+      
+      
+      if (updatedAppointment && updatedAppointment._id) {
+        // Update the appointment in the appointments array
+        const index = state.appointments.findIndex(apt => apt._id === updatedAppointment._id);
+        
+        if (index !== -1) {
+          state.appointments[index] = updatedAppointment;
+        }
+        
+        // Update current appointment if it's the same
+        if (state.currentAppointment && state.currentAppointment._id === updatedAppointment._id) {
+          state.currentAppointment = updatedAppointment;
+        }
+      } else {
+        console.error('🚨 No valid appointment data found in payload:', action.payload);
+        state.error = 'Invalid appointment data received from server';
+      }
+    })
+      .addCase(assignStaffToAppointment.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   }
 });
 

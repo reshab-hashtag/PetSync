@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { XMarkIcon, CalendarIcon, ClockIcon, UserIcon, PhoneIcon, PlusIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CalendarIcon, ClockIcon, UserIcon, PhoneIcon, PlusIcon, BuildingOfficeIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { createAppointment, fetchAppointments } from '../../store/slices/appointmentSlice';
 import { fetchBusinesses } from '../../store/slices/businessSlice';
 import { getClients } from '../../store/slices/clientSlice';
 import { fetchServices } from '../../store/slices/serviceSlice';
+import { fetchStaffMembersWithBusinesses } from '../../store/slices/staffSlice'; // Add this import
 import LoadingSpinner from '../common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -15,19 +16,23 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   const { clients } = useSelector((state) => state.client);
   const { businesses, loading: businessesLoading } = useSelector(state => state.business);
   const { services } = useSelector((state) => state.services);
+  const { staffMembers, loading: staffLoading } = useSelector((state) => state.staff); // Add staff from Redux
   const { isLoading, isCreating } = useSelector((state) => state.appointments);
 
-  // Check if the current user is a client
+  // Check user roles
   const isClientUser = user?.role === 'client';
+  const isBusinessAdmin = user?.role === 'business_admin';
+  const isStaffUser = user?.role === 'staff';
 
   const navigate = useNavigate();
 
-  // Keep the flat form structure for easier UI handling
+  // Form state with staff assignment
   const [formData, setFormData] = useState({
-    businessId: '', // Always start empty to force selection
+    businessId: '',
     clientId: '',
     petId: '',
     serviceId: '',
+    staffId: '', // Add staff assignment field
     duration: 60,
     price: 0,
     date: '',
@@ -39,7 +44,9 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [selectedStaff, setSelectedStaff] = useState(null); // Add selected staff state
   const [availablePets, setAvailablePets] = useState([]);
+  const [availableStaff, setAvailableStaff] = useState([]); // Add available staff state
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClientData, setNewClientData] = useState({
     firstName: '',
@@ -61,35 +68,70 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       if (!isClientUser) {
         dispatch(getClients());
       }
-    }
-  }, [isOpen, dispatch, isClientUser]);
 
-  // Fetch services when business is selected
+      // Fetch staff members for business admins
+      if (isBusinessAdmin) {
+        dispatch(fetchStaffMembersWithBusinesses({ 
+          status: 'active',
+          role: 'all',
+          limit: 100 
+        }));
+      }
+    }
+  }, [isOpen, dispatch, isClientUser, isBusinessAdmin]);
+
+  // Fetch services and filter staff when business is selected
   useEffect(() => {
     if (formData.businessId) {
       dispatch(fetchServices({ businessId: formData.businessId }));
+      
+      // Filter staff members for the selected business
+      if (staffMembers && staffMembers.length > 0) {
+        const businessStaff = staffMembers.filter(staff => 
+          staff.business && staff.business.some(biz => 
+            (typeof biz === 'object' ? biz._id : biz) === formData.businessId
+          )
+        );
+        setAvailableStaff(businessStaff);
+      }
+    } else {
+      setAvailableStaff([]);
     }
-  }, [formData.businessId, dispatch]);
+  }, [formData.businessId, dispatch, staffMembers]);
 
   // Auto-select client if the current user is a client
   useEffect(() => {
     if (isClientUser && user) {
-      // Set the client ID to the current user's ID
       const clientId = user._id || user.id;
       setFormData(prev => ({
         ...prev,
         clientId: clientId
       }));
-
-      // Set selected client data
       setSelectedClient(user);
 
-      // If user has pets, set available pets
       if (user.pets) {
         setAvailablePets(user.pets);
       }
     }
   }, [isClientUser, user]);
+
+  // Auto-assign staff if the current user is a staff member
+  useEffect(() => {
+    if (isStaffUser && user) {
+      setFormData(prev => ({
+        ...prev,
+        staffId: user._id || user.id
+      }));
+      setSelectedStaff({
+        _id: user._id || user.id,
+        profile: user.profile || {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email
+        }
+      });
+    }
+  }, [isStaffUser, user]);
 
   useEffect(() => {
     // Only update available pets for non-client users
@@ -114,10 +156,14 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
         ...prev,
         businessId: businessId,
         serviceId: '', // Reset service when business changes
+        staffId: isStaffUser ? (user._id || user.id) : '', // Keep staff assignment if user is staff
         duration: 60,
         price: 0
       }));
       setSelectedService(null);
+      if (!isStaffUser) {
+        setSelectedStaff(null);
+      }
     }
   };
 
@@ -133,6 +179,18 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
         price: service.pricing?.basePrice || 0
       }));
     }
+  };
+
+  // Handle staff selection
+  const handleStaffChange = (staffId) => {
+    if (isStaffUser) return; // Staff users can't change their own assignment
+    
+    const staff = availableStaff.find(s => (s._id || s.id) === staffId);
+    setSelectedStaff(staff);
+    setFormData(prev => ({
+      ...prev,
+      staffId: staffId
+    }));
   };
 
   const handleClientChange = (clientId) => {
@@ -180,18 +238,15 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
 
-    // Send flat structure that matches your backend validation
+    // Send data structure that matches your backend validation
     const appointmentData = {
       businessId: formData.businessId,
       clientId: formData.clientId,
       serviceName: selectedService?.name || '',
       serviceId: selectedService?._id || '',
+      serviceDescription: selectedService?.description || '',
       petId: petId,
-      service: {
-        id: formData.serviceId,
-        name: selectedService?.name || '',
-        description: selectedService?.description || ''
-      },
+      staffId: formData.staffId || null, // Include staff assignment
       duration: formData.duration,
       price: formData.price,
       date: formData.date,
@@ -221,6 +276,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       clientId: isClientUser ? (user._id || user.id) : '',
       petId: '',
       serviceId: '',
+      staffId: isStaffUser ? (user._id || user.id) : '',
       duration: 60,
       price: 0,
       date: '',
@@ -234,8 +290,13 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
       setAvailablePets([]);
     }
 
+    if (!isStaffUser) {
+      setSelectedStaff(null);
+    }
+
     setSelectedService(null);
     setSelectedBusiness(null);
+    setAvailableStaff([]);
 
     setShowNewClientForm(false);
     setNewClientData({
@@ -279,7 +340,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Business Selection - Show for both client and business admin users */}
+          {/* Business Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Business <span className="text-red-500">*</span>
@@ -302,7 +363,6 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
               ))}
             </select>
 
-            {/* Loading indicator */}
             {businessesLoading && (
               <div className="flex items-center mt-2 text-sm text-gray-500">
                 <LoadingSpinner size="sm" className="mr-2" />
@@ -310,14 +370,12 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
               </div>
             )}
 
-            {/* No businesses message */}
             {!businessesLoading && businesses?.length === 0 && (
               <p className="text-sm text-red-500 mt-1">
                 No businesses available. Please contact support.
               </p>
             )}
 
-            {/* Helper text for clients */}
             {isClientUser && !businessesLoading && (
               <p className="text-sm text-blue-600 mt-1">
                 Select the business where you want to book your appointment.
@@ -325,7 +383,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             )}
           </div>
 
-          {/* Business Details - Show when business is selected */}
+          {/* Business Details */}
           {selectedBusiness && (
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
               <div className="flex items-start space-x-3">
@@ -348,7 +406,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Client Selection - Show differently for client users */}
+          {/* Client Selection */}
           {isClientUser ? (
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">
@@ -400,7 +458,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Pet Selection - Now Required */}
+          {/* Pet Selection */}
           {(selectedClient || isClientUser) && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -435,7 +493,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Service Selection - Only show when business is selected */}
+          {/* Service Selection */}
           {formData.businessId && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -470,7 +528,93 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Service Details - Show when service is selected */}
+          {/* Staff Assignment - Show for business admin, auto-assign for staff, hide for clients */}
+          {formData.businessId && !isClientUser && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {isStaffUser ? 'Assigned Staff' : 'Assign Staff'} 
+                {!isStaffUser && <span className="text-gray-500 text-xs ml-1">(Optional)</span>}
+              </label>
+              
+              {isStaffUser ? (
+                // Staff users see their own info (read-only)
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <div className="flex items-center space-x-3">
+                    <UserGroupIcon className="h-5 w-5 text-gray-500" />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {user.profile?.firstName || user.firstName} {user.profile?.lastName || user.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">{user.profile?.email || user.email}</p>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                        Auto-assigned
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Business admin can select staff
+                <>
+                  <select
+                    value={formData.staffId}
+                    onChange={(e) => handleStaffChange(e.target.value)}
+                    className="input-field"
+                    disabled={staffLoading}
+                  >
+                    <option value="">No staff assigned (will be assigned later)</option>
+                    {availableStaff.map((staff) => (
+                      <option key={staff._id || staff.id} value={staff._id || staff.id}>
+                        {staff.profile?.firstName || staff.firstName} {staff.profile?.lastName || staff.lastName}
+                        {staff.profile?.email && ` - ${staff.profile.email}`}
+                        {staff.specializations && staff.specializations.length > 0 && 
+                          ` (${staff.specializations.join(', ')})`
+                        }
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Staff loading indicator */}
+                  {staffLoading && (
+                    <div className="flex items-center mt-2 text-sm text-gray-500">
+                      <LoadingSpinner size="sm" className="mr-2" />
+                      Loading staff members...
+                    </div>
+                  )}
+
+                  {/* No staff available message */}
+                  {!staffLoading && availableStaff.length === 0 && formData.businessId && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No staff members available for this business.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {/* Selected Staff Info */}
+              {selectedStaff && !isStaffUser && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3 mt-2">
+                  <div className="flex items-center space-x-3">
+                    <UserGroupIcon className="h-4 w-4 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-green-900">
+                        {selectedStaff.profile?.firstName || selectedStaff.firstName} {selectedStaff.profile?.lastName || selectedStaff.lastName}
+                      </p>
+                      {selectedStaff.profile?.email && (
+                        <p className="text-xs text-green-700">{selectedStaff.profile.email}</p>
+                      )}
+                      {selectedStaff.specializations && selectedStaff.specializations.length > 0 && (
+                        <p className="text-xs text-green-600">
+                          Specializations: {selectedStaff.specializations.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Service Details */}
           {selectedService && (
             <div className="bg-gray-50 p-4 rounded-md space-y-2">
               <h4 className="font-medium text-gray-900">{selectedService.name}</h4>
@@ -523,7 +667,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                readOnly={selectedService} // Read-only when service is selected
+                readOnly={selectedService}
               />
               {selectedService && (
                 <p className="text-xs text-gray-500 mt-1">Price set by selected service</p>
@@ -570,7 +714,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={isCreating || businessesLoading}
+              disabled={isCreating || businessesLoading || staffLoading}
               className="btn-primary flex items-center"
             >
               {isCreating ? (

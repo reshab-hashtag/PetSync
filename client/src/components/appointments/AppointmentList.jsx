@@ -1,3 +1,5 @@
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   CalendarIcon,
   ClockIcon,
@@ -9,10 +11,11 @@ import {
   XCircleIcon,
   PlayCircleIcon,
   PauseCircleIcon,
-  ChartBarIcon,
   MagnifyingGlassIcon,
   BuildingOfficeIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  UserGroupIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import {
   fetchAppointments,
@@ -24,8 +27,7 @@ import {
 } from '../../store/slices/appointmentSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 import AppointmentCreateForm from './AppointmentCreateForm';
-import { useDispatch, useSelector } from 'react-redux';
-import { useEffect, useState } from 'react';
+import AppointmentDetailsModal from './AppointmentDetailsModal';
 
 const AppointmentList = () => {
   const dispatch = useDispatch();
@@ -40,6 +42,7 @@ const AppointmentList = () => {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [localFilters, setLocalFilters] = useState({
@@ -127,10 +130,19 @@ const AppointmentList = () => {
     }
   };
 
+  // Add handler for viewing appointment details
+  const handleViewAppointment = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowDetailsModal(true);
+  };
+
+  // Enhanced status functions to include staff assignment pending
   const getStatusColor = (status) => {
     switch (status) {
       case 'scheduled':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'staff_assignment_pending':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'confirmed':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'in_progress':
@@ -150,6 +162,8 @@ const AppointmentList = () => {
     switch (status) {
       case 'scheduled':
         return <CalendarIcon className="h-4 w-4" />;
+      case 'staff_assignment_pending':
+        return <ExclamationTriangleIcon className="h-4 w-4" />;
       case 'confirmed':
         return <CheckCircleIcon className="h-4 w-4" />;
       case 'in_progress':
@@ -162,6 +176,16 @@ const AppointmentList = () => {
         return <PauseCircleIcon className="h-4 w-4" />;
       default:
         return <ClockIcon className="h-4 w-4" />;
+    }
+  };
+
+  // Enhanced status text formatting
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'staff_assignment_pending':
+        return 'Staff Assignment Pending';
+      default:
+        return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
   };
 
@@ -238,6 +262,29 @@ const AppointmentList = () => {
           </div>
         </div>
 
+        {/* Staff Assignment Pending Alert for Business Admins */}
+        {user?.role === 'business_admin' && appointments.some(apt => apt.status === 'staff_assignment_pending') && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <ExclamationTriangleIcon className="h-5 w-5 text-orange-600 mr-2" />
+                <div>
+                  <h3 className="text-sm font-medium text-orange-800">Staff Assignment Required</h3>
+                  <p className="text-xs text-orange-600">
+                    {appointments.filter(a => a.status === 'staff_assignment_pending').length} appointments need staff assignment
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleFilterChange({ status: 'staff_assignment_pending' })}
+                className="text-xs bg-orange-600 text-white px-3 py-1 rounded-md hover:bg-orange-700"
+              >
+                View Pending
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -252,7 +299,7 @@ const AppointmentList = () => {
                 </div>
               </div>
             </div>
-            
+
             {role === "business_admin" && (
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
@@ -266,7 +313,7 @@ const AppointmentList = () => {
                 </div>
               </div>
             )}
-            
+
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -278,7 +325,7 @@ const AppointmentList = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -309,7 +356,7 @@ const AppointmentList = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              
+
               <select
                 className="input-field"
                 value={localFilters.status}
@@ -317,13 +364,14 @@ const AppointmentList = () => {
               >
                 <option value="all">All Status</option>
                 <option value="scheduled">Scheduled</option>
+                <option value="staff_assignment_pending">Staff Assignment Pending</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="no_show">No Show</option>
               </select>
-              
+
               <input
                 type="date"
                 className="input-field"
@@ -331,7 +379,7 @@ const AppointmentList = () => {
                 onChange={(e) => handleFilterChange({ dateFrom: e.target.value })}
                 placeholder="From Date"
               />
-              
+
               <div className="flex space-x-2">
                 <input
                   type="date"
@@ -361,8 +409,8 @@ const AppointmentList = () => {
                 {searchQuery || localFilters.status !== 'all' || localFilters.dateFrom || localFilters.dateTo
                   ? 'No appointments found matching your criteria.'
                   : user?.role === 'business_admin' || user?.role === 'staff'
-                  ? 'Get started by creating a new appointment.'
-                  : 'No appointments scheduled yet.'}
+                    ? 'Get started by creating a new appointment.'
+                    : 'No appointments scheduled yet.'}
               </p>
               {(user?.role === 'business_admin' || user?.role === 'staff') && (
                 <div className="mt-6">
@@ -391,6 +439,9 @@ const AppointmentList = () => {
                       Date & Time
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Staff
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     {user?.role === 'business_admin' && (
@@ -415,7 +466,11 @@ const AppointmentList = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {appointment.client?.profile?.firstName} {appointment.client?.profile?.lastName}
+                              {user.role === 'client' ? (
+                                <>You</>
+                              ) : (
+                                <>{appointment.client?.profile?.firstName} {appointment.client?.profile?.lastName}</>
+                              )}
                             </div>
                             <div className="text-sm text-gray-500 flex items-center">
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
@@ -425,7 +480,7 @@ const AppointmentList = () => {
                           </div>
                         </div>
                       </td>
-                      
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 w-fit">{appointment.service?.name || 'N/A'}</div>
                         <div className="text-sm text-gray-500 flex items-center space-x-2">
@@ -439,7 +494,7 @@ const AppointmentList = () => {
                           </span>
                         </div>
                       </td>
-                      
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-gray-900">
                           <CalendarIcon className="h-4 w-4 mr-2 text-gray-400" />
@@ -449,14 +504,57 @@ const AppointmentList = () => {
                           </div>
                         </div>
                       </td>
-                      
+
+                      {/* Enhanced Staff Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {appointment.status === 'staff_assignment_pending' ? (
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-8 w-8">
+                              <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+                                <ExclamationTriangleIcon className="h-4 w-4 text-orange-600" />
+                              </div>
+                            </div>
+                            <div className="ml-3">
+                              <span className="text-sm font-medium text-orange-700">Assignment Pending</span>
+                            </div>
+                          </div>
+                        ) : appointment.staff?.assigned ? (
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-8 w-8">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
+                                <UserGroupIcon className="h-4 w-4 text-green-600" />
+                              </div>
+                            </div>
+                            <div className="ml-3 flex flex-col items-start">
+                              <div className="text-sm font-medium text-gray-900">
+                                {appointment.staff.assigned.profile?.firstName} {appointment.staff.assigned.profile?.lastName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {appointment.staff.assigned.profile?.email}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-8 w-8">
+                              <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                <UserGroupIcon className="h-4 w-4 text-gray-400" />
+                              </div>
+                            </div>
+                            <div className="ml-3">
+                              <span className="text-sm text-gray-500">Not assigned</span>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`flex items-start w-fit px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
                           {getStatusIcon(appointment.status)}
-                          <span className="ml-1 capitalize">{appointment.status.replace('_', ' ')}</span>
+                          <span className="ml-1">{getStatusText(appointment.status)}</span>
                         </span>
                       </td>
-                      
+
                       {user?.role === 'business_admin' && (
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-900">
@@ -468,17 +566,18 @@ const AppointmentList = () => {
                           </div>
                         </td>
                       )}
-                      
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
+                          {/* View Details Button */}
                           <button
-                            onClick={() => setSelectedAppointment(appointment)}
+                            onClick={() => handleViewAppointment(appointment)}
                             className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
                             title="View Details"
                           >
                             <EyeIcon className="h-4 w-4" />
                           </button>
-                          
+
                           {canUpdateStatus(appointment) && (
                             <>
                               {appointment.status === 'scheduled' && (
@@ -490,7 +589,7 @@ const AppointmentList = () => {
                                   <CheckCircleIcon className="h-4 w-4" />
                                 </button>
                               )}
-                              
+
                               {appointment.status === 'confirmed' && (
                                 <button
                                   onClick={() => handleStatusUpdate(appointment._id, 'start')}
@@ -500,7 +599,7 @@ const AppointmentList = () => {
                                   <PlayCircleIcon className="h-4 w-4" />
                                 </button>
                               )}
-                              
+
                               {appointment.status === 'in_progress' && (
                                 <button
                                   onClick={() => handleStatusUpdate(appointment._id, 'complete')}
@@ -510,7 +609,7 @@ const AppointmentList = () => {
                                   <CheckCircleIcon className="h-4 w-4" />
                                 </button>
                               )}
-                              
+
                               {['scheduled', 'confirmed'].includes(appointment.status) && (
                                 <button
                                   onClick={() => handleCancelAppointment(appointment._id, 'Cancelled by admin')}
@@ -546,7 +645,7 @@ const AppointmentList = () => {
               >
                 Previous
               </button>
-              
+
               {/* Page numbers */}
               <div className="flex space-x-1">
                 {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
@@ -555,18 +654,17 @@ const AppointmentList = () => {
                     <button
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-1 text-sm rounded-md ${
-                        pageNum === pagination.current
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 text-sm rounded-md ${pageNum === pagination.current
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
                       {pageNum}
                     </button>
                   ) : null;
                 })}
               </div>
-              
+
               <button
                 onClick={() => handlePageChange(pagination.current + 1)}
                 disabled={pagination.current === pagination.pages}
@@ -584,6 +682,16 @@ const AppointmentList = () => {
         isOpen={showCreateForm}
         onClose={() => setShowCreateForm(false)}
         onSuccess={handleCreateSuccess}
+      />
+
+      {/* Appointment Details Modal */}
+      <AppointmentDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedAppointment(null);
+        }}
+        appointment={selectedAppointment}
       />
     </div>
   );
