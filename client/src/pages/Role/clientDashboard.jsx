@@ -95,7 +95,7 @@ const ClientDashboard = ({ overview, UserGroupIcon, CalendarIcon, ChartBarIcon, 
                                     {appointmentsLoading ? 'Loading...' : `${todaysAppointments.length} appointments scheduled`}
                                 </p>
                             </div>
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-3 justify-between">
                                 <div className="flex-shrink-0">
                                     <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 sm:text-sm">
                                         {new Date().toLocaleDateString('en-US', {
@@ -135,9 +135,10 @@ const ClientDashboard = ({ overview, UserGroupIcon, CalendarIcon, ChartBarIcon, 
                                         {/* Mobile Layout (stacked) */}
                                         <div className="sm:hidden space-y-3">
                                             <div className="flex items-start justify-between">
-                                                <div className="flex-1 min-w-0">
+                                                <div className="flex min-w-0 flex-col items-start">
                                                     <h4 className="text-base font-medium text-gray-900 truncate">
-                                                        {appointment.client?.profile?.firstName} {appointment.client?.profile?.lastName}
+                                                        {/* {appointment.client?.profile?.firstName} {appointment.client?.profile?.lastName} */}
+                                                        You
                                                     </h4>
                                                     <p className="mt-1 text-sm text-gray-600 truncate">
                                                         {appointment.pet?.profile?.name} • {appointment.service?.name}
@@ -186,7 +187,8 @@ const ClientDashboard = ({ overview, UserGroupIcon, CalendarIcon, ChartBarIcon, 
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center space-x-3">
                                                         <h4 className="text-sm font-medium text-gray-900 truncate">
-                                                            {appointment.client?.profile?.firstName} {appointment.client?.profile?.lastName}
+                                                            {/* {appointment.client?.profile?.firstName} {appointment.client?.profile?.lastName} */}
+                                                            You
                                                         </h4>
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
                                                             appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :

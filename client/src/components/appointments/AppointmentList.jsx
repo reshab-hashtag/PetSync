@@ -242,7 +242,7 @@ const AppointmentList = () => {
               )}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 items-center justify-between">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="btn-secondary flex items-center"
@@ -637,7 +637,7 @@ const AppointmentList = () => {
             <div className="text-sm text-gray-700">
               Showing {((pagination.current - 1) * pagination.limit) + 1} to {Math.min(pagination.current * pagination.limit, pagination.total)} of {pagination.total} results
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center space-x-2">
               <button
                 onClick={() => handlePageChange(pagination.current - 1)}
                 disabled={pagination.current === 1}

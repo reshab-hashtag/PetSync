@@ -1,7 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import { store } from './store/store.ts';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // Layout
@@ -31,7 +29,6 @@ import ServiceManagement from './components/services/ServiceManagement.jsx';
 
 function App() {
   return (
-    <Provider store={store}>
       <Router>
         <div className="App">
           <Routes>
@@ -82,7 +79,7 @@ function App() {
           </Routes>
 
           <Toaster
-            position="top-right"
+            position="top-center"
             toastOptions={{
               duration: 4000,
               style: { background: '#363636', color: '#fff' },
@@ -92,7 +89,6 @@ function App() {
           />
         </div>
       </Router>
-    </Provider>
   );
 }
 

@@ -419,7 +419,7 @@ async createBusiness(req, res, next) {
       // 5) Fetch the paged results in parallel with the count
       const [ businesses, total ] = await Promise.all([
         Business.find(query)
-          .populate('staff', 'profile.firstName profile.lastName profile.email role')
+          .populate('staff', 'profile.firstName profile.lastName profile.email role isActive')
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit),

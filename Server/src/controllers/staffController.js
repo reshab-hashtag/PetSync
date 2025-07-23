@@ -341,7 +341,7 @@ async getAllStaffMembersEnhanced(req, res, next) {
     // 5) Get staff members with full details
     const staff = await User.find(query)
       .populate('profile.createdBy', 'profile.firstName profile.lastName profile.email role')
-      .populate('business', 'profile.name profile.companyName profile.email')
+      .populate('business', 'profile.name profile.companyName profile.email profile.phone isActive')
       .select('-auth.passwordHash') // Exclude password
       .sort({ createdAt: -1 })
       .skip(skip)
