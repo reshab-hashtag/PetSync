@@ -5,7 +5,7 @@ export { serviceAPI } from './serviceAPI';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://51.20.198.23:10000/api',
   timeout: 10000,
 });
 
