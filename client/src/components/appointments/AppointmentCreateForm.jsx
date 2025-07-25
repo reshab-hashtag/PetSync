@@ -312,7 +312,7 @@ const AppointmentCreateForm = ({ isOpen, onClose, onSuccess }) => {
 
   const handleCreateNewClient = () => {
     // This would integrate with your client creation logic
-    toast.info('New client creation feature coming soon!');
+    // toast.info('New client creation feature coming soon!');
   };
 
   const handleInputChange = (field, value) => {

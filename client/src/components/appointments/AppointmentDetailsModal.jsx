@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  XMarkIcon, 
-  CalendarIcon, 
-  ClockIcon, 
-  UserIcon, 
+import {
+  XMarkIcon,
+  CalendarIcon,
+  ClockIcon,
+  UserIcon,
   BuildingOfficeIcon,
   CurrencyDollarIcon,
   UserGroupIcon,
@@ -18,16 +18,31 @@ import {
   TagIcon,
   DocumentTextIcon,
   StarIcon,
-  PlusIcon
+  PlusIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 import { useSelector } from 'react-redux';
 import StaffAssignmentModal from './StaffAssignmentModal';
+import useChat from '../hooks/useChat';
 
 const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) => {
   const { user } = useSelector((state) => state.auth);
   const [showStaffAssignment, setShowStaffAssignment] = useState(false);
+  const { startChat } = useChat();
 
   if (!isOpen || !appointment) return null;
+
+
+
+  const handleQuickChat = () => {
+    const targetUserId = user.role === 'pet_owner'
+      ? appointment.staff?._id || appointment.assignedTo?._id
+      : appointment.client?._id;
+
+    if (targetUserId) {
+      startChat(targetUserId, appointment._id);
+    }
+  };
 
   // Status styling functions
   const getStatusColor = (status) => {
@@ -125,9 +140,9 @@ const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) =>
   };
 
   // Check if user is business admin and staff is not assigned
-  const showAssignStaffButton = user?.role === 'business_admin' && 
-    !appointment.staff?.assigned && 
-    appointment.status !== 'completed' && 
+  const showAssignStaffButton = user?.role === 'business_admin' &&
+    !appointment.staff?.assigned &&
+    appointment.status !== 'completed' &&
     appointment.status !== 'cancelled';
 
   return (
@@ -153,7 +168,23 @@ const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) =>
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
+
+
+
+            {/* Quick actions */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleQuickChat}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                <span>Quick Chat</span>
+              </button>
+            </div>
           </div>
+
+
+
 
           {/* Content */}
           <div className="p-6 space-y-8">
@@ -347,16 +378,16 @@ const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) =>
                       {appointment.status === 'staff_assignment_pending' && (
                         <p className="text-sm text-orange-600 mt-1">Staff assignment is pending</p>
                       )}
-                      
+
                       {/* Assign Staff Button */}
                       {/* {showAssignStaffButton && ( */}
-                        <button
-                          onClick={() => setShowStaffAssignment(true)}
-                          className="mt-3 inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
-                        >
-                          <PlusIcon className="h-4 w-4 mr-1" />
-                          Assign Staff
-                        </button>
+                      <button
+                        onClick={() => setShowStaffAssignment(true)}
+                        className="mt-3 inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                      >
+                        <PlusIcon className="h-4 w-4 mr-1" />
+                        Assign Staff
+                      </button>
                       {/* )} */}
                     </div>
                   )}
@@ -482,11 +513,10 @@ const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) =>
                         {[1, 2, 3, 4, 5].map((star) => (
                           <StarIcon
                             key={star}
-                            className={`h-5 w-5 ${
-                              star <= appointment.feedback.rating
-                                ? 'text-yellow-400 fill-current'
-                                : 'text-gray-300'
-                            }`}
+                            className={`h-5 w-5 ${star <= appointment.feedback.rating
+                              ? 'text-yellow-400 fill-current'
+                              : 'text-gray-300'
+                              }`}
                           />
                         ))}
                         <span className="ml-2 text-sm text-gray-600">

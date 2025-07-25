@@ -158,7 +158,7 @@ const LandingDashboard = () => {
   const skipLocationPermission = () => {
     setShowLocationModal(false);
     setLocationPermission('denied');
-    toast.info('Searching without location. Results may be less accurate.');
+    // toast.info('Searching without location. Results may be less accurate.');
   };
 
   const loadCategories = async () => {

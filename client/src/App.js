@@ -26,11 +26,14 @@ import BusinessList from './components/business/BusinessList.jsx';
 import SuperAdminCategories from './components/admin/SuperAdminCategories.jsx';
 import LandingDashboard from './pages/LandingDashboard.jsx';
 import ServiceManagement from './components/services/ServiceManagement.jsx';
+import TempChatComponent from './components/chat/TempChatComponent.jsx';
+import { useSelector } from 'react-redux';
 
 function App() {
+   const { user } = useSelector((state) => state.auth);
+
   return (
       <Router>
-        <div className="App">
           <Routes>
             {/* Public */}
              <Route path="/" element={<LandingDashboard />} />
@@ -77,6 +80,8 @@ function App() {
               />
             </Route>
           </Routes>
+       {user && ["client", "staff"].includes(user.role) && <TempChatComponent />}
+
 
           <Toaster
             position="top-center"
@@ -87,7 +92,6 @@ function App() {
               error:   { style: { background: '#EF4444' } },
             }}
           />
-        </div>
       </Router>
   );
 }

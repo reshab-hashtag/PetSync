@@ -37,6 +37,7 @@ const staffRoutes = require('./routes/staff');
 const clientRoutes = require('./routes/Client');
 const serviceRoutes =require('./routes/services')
 const businessCategoryRoutes = require('./routes/businessCategory');
+const tempChatRoutes = require('./routes/tempChat');
 const dashboardRoutes = require('./routes/dashboard');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/admin');
@@ -45,6 +46,7 @@ const otpRoutes = require('./routes/otp')
 
 // Import socket handlers
 const socketHandler = require('./socket/socketHandler');
+const tempChatHandler = require('./socket/tempChatHandler');
 
 const app = express();
 const server = http.createServer(app);
@@ -143,6 +145,7 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/client', clientRoutes);
 app.use('/api/otp', otpRoutes);
+app.use('/api/temp-chat', tempChatRoutes);
 // app.use('/api/payments', paymentRoutes);
 
 // Static file serving
@@ -170,6 +173,7 @@ app.use((req, res) => {
 
 // Socket.io setup
 socketHandler(io);
+tempChatHandler(io);
 
 // Error handling middleware (should be last)
 app.use(errorHandler);

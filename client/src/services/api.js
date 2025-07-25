@@ -125,7 +125,16 @@ api.interceptors.response.use(
 
 
 
-
+export const chatAPI = {
+  // Get users available for chat
+  getAvailableUsers: () => api.get('/temp-chat/available-users'),
+  
+  // Check if current user can chat with target user
+  canChatWithUser: (targetUserId) => api.post(`/temp-chat/can-chat/${targetUserId}`),
+  
+  // Get chat room information
+  getChatRoomInfo: (roomId) => api.get(`/temp-chat/room-info/${roomId}`),
+};
 
 
 
@@ -160,13 +169,6 @@ export const dashboardAPI = {
   getFinancialAnalytics: (params) => api.get('/dashboard/analytics/financial', { params }),
 };
 
-// export const appointmentAPI = {
-//   getAppointments: (params) => api.get('/appointments', { params }),
-//   createAppointment: (data) => api.post('/appointments', data),
-//   updateAppointment: (id, data) => api.put(`/appointments/${id}`, data),
-//   deleteAppointment: (id) => api.delete(`/appointments/${id}`),
-//   getAppointment: (id) => api.get(`/appointments/${id}`),
-// };
 
 export const petAPI = {
   getPets: (params) => api.get('/pets', { params }),
@@ -178,28 +180,13 @@ export const petAPI = {
 
 
 export const businessCategoryAPI = {
-  // Get all categories with pagination and filters (admin)
   getAll: (params = {}) => api.get('/business-categories', { params }),
-  
-  // Get active categories for dropdowns (public)
   getActive: () => api.get('/business-categories/active'),
-  
-  // Get single category by ID
   getById: (id) => api.get(`/business-categories/${id}`),
-  
-  // Create new category (super admin only)
   create: (categoryData) => api.post('/business-categories', categoryData),
-  
-  // Update existing category (super admin only)
   update: (id, categoryData) => api.put(`/business-categories/${id}`, categoryData),
-  
-  // Delete category (super admin only)
   delete: (id) => api.delete(`/business-categories/${id}`),
-  
-  // Get category statistics (super admin only)
   getStats: () => api.get('/business-categories/admin/stats'),
-  
-  // Bulk update display order (super admin only)
   updateDisplayOrder: (categories) => api.put('/business-categories/bulk/display-order', { categories }),
 };
 
@@ -217,12 +204,10 @@ export const clientAPI = {
 
 // Appointment API
 export const appointmentAPI = {
-  // Create new appointment
   createAppointment: async (appointmentData) => {
     return await api.post('/appointments', appointmentData);
   },
 
-  // Get appointments with filters
   getAppointments: async (params = {}) => {
     const queryParams = new URLSearchParams();
     
@@ -234,38 +219,24 @@ export const appointmentAPI = {
 
     return await api.get(`/appointments?${queryParams.toString()}`);
   },
-
-  // Get single appointment
   getAppointment: async (appointmentId) => {
     return await api.get(`/appointments/${appointmentId}`);
   },
-
-  // Update appointment
   updateAppointment: async (appointmentId, appointmentData) => {
     return await api.put(`/appointments/${appointmentId}`, appointmentData);
   },
-
-  // Cancel appointment
   cancelAppointment: async (appointmentId, data) => {
     return await api.post(`/appointments/${appointmentId}/cancel`, data);
   },
-
-  // Check-in appointment
   checkinAppointment: async (appointmentId) => {
     return await api.post(`/appointments/${appointmentId}/checkin`);
   },
-
-  // Start service
   startService: async (appointmentId) => {
     return await api.post(`/appointments/${appointmentId}/start`);
   },
-
-  // Complete service
   completeService: async (appointmentId, data = {}) => {
     return await api.post(`/appointments/${appointmentId}/complete`, data);
   },
-
-  // Get appointment statistics
   getAppointmentStats: async (params = {}) => {
     const queryParams = new URLSearchParams();
     
@@ -277,29 +248,21 @@ export const appointmentAPI = {
 
     return await api.get(`/appointments/stats/overview?${queryParams.toString()}`);
   },
-
-  // Get appointments by date range
   getAppointmentsByDateRange: async (dateFrom, dateTo, businessId) => {
     return await api.get(`/appointments`, {
       params: { dateFrom, dateTo, businessId }
     });
   },
-
-  // Get appointments by client
   getAppointmentsByClient: async (clientId, params = {}) => {
     return await api.get(`/appointments`, {
       params: { clientId, ...params }
     });
   },
-
-  // Get appointments by staff
   getAppointmentsByStaff: async (staffId, params = {}) => {
     return await api.get(`/appointments`, {
       params: { staffId, ...params }
     });
   },
-
-  // Get today's appointments
   getTodaysAppointments: async (businessId) => {
     const today = new Date().toISOString().split('T')[0];
     return await api.get(`/appointments`, {
@@ -310,8 +273,6 @@ export const appointmentAPI = {
       }
     });
   },
-
-  // Get upcoming appointments
   getUpcomingAppointments: async (businessId, days = 7) => {
     const today = new Date();
     const futureDate = new Date(today.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -325,8 +286,6 @@ export const appointmentAPI = {
       }
     });
   },
-
-  // Reschedule appointment
   rescheduleAppointment: async (appointmentId, newDateTime) => {
     return await api.put(`/appointments/${appointmentId}`, {
       schedule: {
@@ -336,27 +295,19 @@ export const appointmentAPI = {
       }
     });
   },
-
-  // Add notes to appointment
   addAppointmentNotes: async (appointmentId, notes) => {
     return await api.put(`/appointments/${appointmentId}`, {
       details: { notes }
     });
   },
-
-  // Update appointment service details
   updateAppointmentService: async (appointmentId, serviceData) => {
     return await api.put(`/appointments/${appointmentId}`, {
       service: serviceData
     });
   },
-
-  // Get appointment history for a pet
   getPetAppointmentHistory: async (petId, params = {}) => {
     return await api.get(`/pets/${petId}/appointments`, { params });
   },
-
-  // Get appointment analytics
   getAppointmentAnalytics: async (params = {}) => {
     const queryParams = new URLSearchParams();
     
@@ -368,14 +319,10 @@ export const appointmentAPI = {
 
     return await api.get(`/dashboard/analytics/appointments?${queryParams.toString()}`);
   },
-
-  // Add this new method to your existing appointmentAPI object
   assignStaff: async (appointmentId, staffId) => {
     console.log(appointmentId)
     return await api.put(`/appointments/${appointmentId}/assign-staff`, { staffId });
   },
-
-  // You can also add these related methods for complete staff management
   unassignStaff: async (appointmentId) => {
     return await api.put(`/appointments/${appointmentId}/unassign-staff`);
   },
@@ -383,8 +330,6 @@ export const appointmentAPI = {
   reassignStaff: async (appointmentId, newStaffId) => {
     return await api.put(`/appointments/${appointmentId}/reassign-staff`, { staffId: newStaffId });
   },
-
-  // Get available staff for appointment
   getAvailableStaff: async (appointmentId, params = {}) => {
     return await api.get(`/appointments/${appointmentId}/available-staff`, { params });
   }

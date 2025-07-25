@@ -1,4 +1,3 @@
-// socket/socketHandler.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Message = require('../models/Message');
