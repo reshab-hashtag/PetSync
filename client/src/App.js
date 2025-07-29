@@ -28,6 +28,7 @@ import LandingDashboard from './pages/LandingDashboard.jsx';
 import ServiceManagement from './components/services/ServiceManagement.jsx';
 import TempChatComponent from './components/chat/TempChatComponent.jsx';
 import { useSelector } from 'react-redux';
+import BusinessPaymentsSAdmin from './components/business/BusinessPaymentsSAdmin.jsx';
 
 function App() {
    const { user } = useSelector((state) => state.auth);
@@ -58,6 +59,7 @@ function App() {
               <Route path="services" element={<ServiceManagement />} />
               <Route path="register-business-admin" element={<BusinessAdminRegistrationForm />} />
               <Route path="admin/categories" element={<SuperAdminCategories />} />
+              <Route path="admin/business-payments" element={<BusinessPaymentsSAdmin />} />
               {/* 404 under the dashboard layout */}
               <Route
                 path="*"

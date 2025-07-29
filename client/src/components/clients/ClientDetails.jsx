@@ -9,7 +9,6 @@ import {
   XCircleIcon,
   PencilIcon,
   MapPinIcon,
-  UserGroupIcon,
   HeartIcon
 } from '@heroicons/react/24/outline';
 
@@ -87,7 +86,7 @@ const ClientDetails = ({ client, onClose, onEdit }) => {
       </div>
 
       {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Personal Information */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">

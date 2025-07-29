@@ -1,5 +1,3 @@
-// client/src/components/clients/ClientList.jsx (Updated with edit and details modals)
-
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -18,9 +16,9 @@ import ClientForm from './ClientForm';
 import ClientDetails from './ClientDetails';
 import LoadingSpinner from '../common/LoadingSpinner';
 import RoleBasedAccess from '../common/RoleBasedAccess';
-import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 import Modal from '../common/Modal';
 import toast from 'react-hot-toast';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const ClientList = () => {
   const dispatch = useDispatch();
@@ -31,13 +29,12 @@ const ClientList = () => {
     isLoading,
     error
   } = useSelector((state) => state.client);
-  const { user } = useSelector((state) => state.auth);
 
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState(filters.search);
   const [selectedStatus, setSelectedStatus] = useState(filters.status);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Modal states
   const [modals, setModals] = useState({
@@ -58,7 +55,7 @@ const ClientList = () => {
       status: filters.status,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
-      role: 'pet_owner' 
+      role: 'pet_owner'
     };
     dispatch(getClients(params));
   };
@@ -81,26 +78,19 @@ const ClientList = () => {
 
   const handleDeleteClick = (client) => {
     setClientToDelete(client);
-    setShowDeleteModal(true);
+    setShowDeleteDialog(true);
   };
 
-  const handleDeleteCancel = () => {
-    setShowDeleteModal(false);
-    setClientToDelete(null);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (clientToDelete) {
-      try {
-        await dispatch(deleteClient(clientToDelete.id)).unwrap();
-        toast.success('Client deleted successfully');
-        fetchClients();
-      } catch (error) {
-        toast.error(error.message || 'Failed to delete client');
-      }
+  // Called when you click “Delete” in the dialog
+  const confirmDelete = async () => {
+    try {
+      await dispatch(deleteClient(clientToDelete.id)).unwrap();
+      toast.success(`"${clientToDelete.fullName}" deleted successfully`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete Client');
+    } finally {
+      setShowDeleteDialog(false);
     }
-    setShowDeleteModal(false);
-    setClientToDelete(null);
   };
 
   const handleToggleStatus = async (clientId) => {
@@ -447,17 +437,20 @@ const ClientList = () => {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <DeleteConfirmationModal
-        isOpen={showDeleteModal}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Client"
-        message={
-          clientToDelete
-            ? `Are you sure you want to delete this client? This action cannot be undone and will permanently remove all client data including their pets, appointments, and history.`
-            : 'Are you sure you want to delete this client?'
-        }
-      />
+      {showDeleteDialog && (
+        <ConfirmDialog
+          title="Delete Client"
+          message={`Are you sure you want to delete "${clientToDelete?.fullName}"? This action cannot be undone and will permanently remove all records for this pet.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setShowDeleteDialog(false);
+            setClientToDelete(null);
+          }}
+        />
+      )}
     </div>
   );
 };

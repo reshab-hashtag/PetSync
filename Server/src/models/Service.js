@@ -32,11 +32,10 @@ const ServiceSchema = new mongoose.Schema({
     specialRequirements: [String]
   },
   
-  staff: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    skillLevel: { type: String, enum: ['beginner', 'intermediate', 'expert'] }
-  }],
-  
+ staff: [{
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  assignedAt: Date,
+}],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

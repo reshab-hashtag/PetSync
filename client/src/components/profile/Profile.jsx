@@ -3,20 +3,16 @@ import { useSelector, useDispatch } from 'react-redux';
 import { updateUserProfile } from '../../store/slices/authSlice';
 import {
     PencilIcon,
-    CalendarIcon,
     MapPinIcon,
     PhoneIcon,
     EnvelopeIcon,
-    BuildingOfficeIcon,
-    HeartIcon,
     CheckCircleIcon,
     ShieldCheckIcon,
     XMarkIcon,
-    CalendarDaysIcon,
-    CameraIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AvatarUpload from '../../components/common/AvatarUpload';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const Profile = () => {
     const dispatch = useDispatch();
@@ -24,14 +20,13 @@ const Profile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notification, setNotification] = useState(null);
+    const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
     const [formData, setFormData] = useState({
         firstName: user?.profile?.firstName || '',
         lastName: user?.profile?.lastName || '',
         email: user?.profile?.email || '',
         phone: user?.profile?.phone || '',
-        dateOfBirth: user?.profile?.dateOfBirth || '',
-        bio: user?.profile?.bio || '',
         address: {
             street: user?.profile?.address?.street || '',
             city: user?.profile?.address?.city || '',
@@ -84,8 +79,6 @@ const Profile = () => {
             lastName: user?.profile?.lastName || '',
             email: user?.profile?.email || '',
             phone: user?.profile?.phone || '',
-            dateOfBirth: user?.profile?.dateOfBirth || '',
-            bio: user?.profile?.bio || '',
             address: {
                 street: user?.profile?.address?.street || '',
                 city: user?.profile?.address?.city || '',
@@ -107,36 +100,6 @@ const Profile = () => {
 
     const handleAvatarUploadError = (error) => {
         showNotification(error, 'error');
-    };
-
-    const getRoleDisplayName = (role) => {
-        switch (role) {
-            case 'super_admin':
-                return 'Super Administrator';
-            case 'business_admin':
-                return 'Business Administrator';
-            case 'staff':
-                return 'Staff Member';
-            case 'client':
-                return 'Pet Owner';
-            default:
-                return role;
-        }
-    };
-
-    const getRoleColor = (role) => {
-        switch (role) {
-            case 'super_admin':
-                return 'bg-purple-100 text-purple-800';
-            case 'business_admin':
-                return 'bg-blue-100 text-blue-800';
-            case 'staff':
-                return 'bg-green-100 text-green-800';
-            case 'client':
-                return 'bg-yellow-100 text-yellow-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
     };
 
     return (
@@ -201,8 +164,8 @@ const Profile = () => {
                                         <span className="text-gray-600">Account Verified</span>
                                     </div>
                                     <div className="flex items-center space-x-2 text-sm mt-2">
-                                       
-                                        {user.isActive ?  <div className="w-4 h-4 bg-green-500 rounded-full"></div>:   <div className="w-4 h-4 bg-green-500 rounded-full"></div>}
+
+                                        {user.isActive ? <div className="w-4 h-4 bg-green-500 rounded-full"></div> : <div className="w-4 h-4 bg-green-500 rounded-full"></div>}
                                         <span className="text-gray-600">Active Status</span>
                                     </div>
                                 </div>
@@ -463,79 +426,91 @@ const Profile = () => {
                                     </div>
                                 </div>
                             </div>
+                        </form>
 
-                            {/* Account Security Card */}
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                                <div className="px-6 py-5 border-b border-gray-200">
-                                    <div className="flex items-center space-x-3">
-                                        <ShieldCheckIcon className="w-5 h-5 text-gray-600" />
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">
-                                                Account Security
-                                            </h3>
-                                            <p className="mt-1 text-sm text-gray-600">
-                                                Manage your account security settings
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="px-6 py-6">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-                                            <div className="flex items-center space-x-3">
-                                                <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                                                <div>
-                                                    <div className="text-sm font-medium text-green-900">
-                                                        Email Verified
-                                                    </div>
-                                                    <div className="text-xs text-green-700">
-                                                        Your email address has been verified
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    Password
-                                                </div>
-                                                <div className="text-xs text-gray-600">
-                                                    Last updated 30 days ago
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                            >
-                                                Change Password
-                                            </button>
-                                        </div>
-
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">
-                                                    Two-Factor Authentication
-                                                </div>
-                                                <div className="text-xs text-gray-600">
-                                                    Add an extra layer of security
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                            >
-                                                Enable 2FA
-                                            </button>
-                                        </div>
+                        {/* Account Security Card */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                            <div className="px-6 py-5 border-b border-gray-200">
+                                <div className="flex items-center space-x-3">
+                                    <ShieldCheckIcon className="w-5 h-5 text-gray-600" />
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Account Security
+                                        </h3>
+                                        <p className="mt-1 text-sm text-gray-600">
+                                            Manage your account security settings
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-                        </form>
+
+                            <div className="px-6 py-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center space-x-3">
+                                            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                                            <div>
+                                                <div className="text-sm font-medium text-green-900">
+                                                    Email Verified
+                                                </div>
+                                                <div className="text-xs text-green-700">
+                                                    Your email address has been verified
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900">
+                                                Password
+                                            </div>
+                                            {/* <div className="text-xs text-gray-600">
+                                                Last updated {user.auth?.lastPasswordChange ?
+                                                    new Date(user.auth.lastPasswordChange).toLocaleDateString() :
+                                                    '30 days ago'
+                                                }
+                                            </div> */}
+                                        </div>
+                                        <button
+                                            onClick={() => setShowChangePasswordModal(true)}
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                                        >
+                                            Change Password
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900">
+                                                Two-Factor Authentication
+                                            </div>
+                                            <div className="text-xs text-gray-600">
+                                                Add an extra layer of security
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                            Enable 2FA
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+
+
+
+            {/* Change Password Modal */}
+            <ChangePasswordModal
+                isOpen={showChangePasswordModal}
+                onClose={() => setShowChangePasswordModal(false)}
+            />
         </div>
     );
 };

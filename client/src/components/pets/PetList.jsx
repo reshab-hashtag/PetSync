@@ -4,19 +4,19 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
-  EyeIcon,
   PencilIcon,
   TrashIcon,
   HeartIcon,
   CalendarIcon,
   UserIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../common/LoadingSpinner';
 import AddPetModal from './AddPetModal';
 import { getPets, deletePet } from '../../store/slices/petSlice';
 import { getClients } from '../../store/slices/clientSlice';
 import toast from 'react-hot-toast';
+import PetDetailsModal from './PetDetailsModal';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const PetList = () => {
   const dispatch = useDispatch();
@@ -26,6 +26,9 @@ const PetList = () => {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [petToDelete, setPetToDelete] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
@@ -65,15 +68,26 @@ const PetList = () => {
     }
   };
 
-  const handleDeletePet = async (petId) => {
-    if (window.confirm('Are you sure you want to delete this pet? This action cannot be undone.')) {
-      try {
-        await dispatch(deletePet(petId)).unwrap();
-        toast.success('Pet deleted successfully');
-      } catch (error) {
-        toast.error(error.message || 'Failed to delete pet');
-      }
+  const handleDeletePet = (petId) => {
+    setPetToDelete(petId);
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await dispatch(deletePet(petToDelete)).unwrap();
+      toast.success('Pet deleted successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete pet');
+    } finally {
+      setShowDeleteDialog(false);
+      setPetToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteDialog(false);
+    setPetToDelete(null);
   };
 
   const handleEditPet = (pet) => {
@@ -83,13 +97,19 @@ const PetList = () => {
 
   const handleAddPetSuccess = () => {
     setShowAddModal(false);
-    dispatch(getPets()); // Refresh pets list
+    dispatch(getPets());
+  };
+
+
+  const handleViewProfile = (pet) => {
+    setSelectedPet(pet);
+    setShowDetailsModal(true);
   };
 
   const handleEditPetSuccess = () => {
     setShowEditModal(false);
     setSelectedPet(null);
-    dispatch(getPets()); // Refresh pets list
+    dispatch(getPets());
   };
 
   const filteredPets = pets.filter(pet => {
@@ -262,103 +282,165 @@ const PetList = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredPets.map((pet) => (
-              <div key={pet._id} className="card hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-                        <span className="text-2xl">
-                          {getSpeciesIcon(pet.profile.species)}
-                        </span>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredPets.map((pet) => (
+                <div key={pet._id} className="bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 overflow-hidden">
+                  {/* Header with Avatar and Actions */}
+                  <div className="p-4 pb-3">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0">
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                            <span className="text-lg">
+                              {getSpeciesIcon(pet.profile.species)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-semibold text-gray-900 truncate">
+                            {pet.profile.name}
+                          </h3>
+                          <p className="text-sm text-gray-500 truncate">
+                            {pet.profile.breed}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex space-x-1 ml-2">
+                        <button
+                          onClick={() => handleEditPet(pet)}
+                          className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                          title="Edit Pet"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        {user?.role !== 'pet_owner' && (
+                          <button
+                            onClick={() => handleDeletePet(pet._id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete Pet"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {pet.profile.name}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {pet.profile.breed} • {pet.profile.gender}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {calculateAge(pet.profile.dateOfBirth)} years old
-                      </p>
+
+                    {/* Owner Info */}
+                    <div className="flex items-center text-xs text-gray-500 mb-3">
+                      <UserIcon className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span className="truncate">
+                        {pet.owner?.profile?.firstName} {pet.owner?.profile?.lastName}
+                      </span>
+                    </div>
+
+                    {/* Pet Details - Compact Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                      <div className="bg-gray-50 rounded p-2">
+                        <div className="text-gray-500 mb-1">Age</div>
+                        <div className="font-medium text-gray-900">
+                          {calculateAge(pet.profile.dateOfBirth)}y
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded p-2">
+                        <div className="text-gray-500 mb-1">Weight</div>
+                        <div className="font-medium text-gray-900">
+                          {pet.profile.weight} lbs
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded p-2">
+                        <div className="text-gray-500 mb-1">Gender</div>
+                        <div className="font-medium text-gray-900 capitalize">
+                          {pet.profile.gender}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded p-2">
+                        <div className="text-gray-500 mb-1">Color</div>
+                        <div className="font-medium text-gray-900 truncate">
+                          {pet.profile.color}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex space-x-1">
-                    <button className="p-1 text-blue-600 hover:text-blue-900">
-                      <EyeIcon className="h-4 w-4" />
-                    </button>
+
+                  {/* Footer with Action Button */}
+                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
                     <button
-                      onClick={() => handleEditPet(pet)}
-                      className="p-1 text-yellow-600 hover:text-yellow-900"
+                      onClick={() => handleViewProfile(pet)}
+                      className="w-full text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 py-2 px-3 rounded transition-colors"
                     >
-                      <PencilIcon className="h-4 w-4" />
+                      View Profile
                     </button>
-                    {user?.role !== 'pet_owner' && (
-                      <button
-                        onClick={() => handleDeletePet(pet._id)}
-                        className="p-1 text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    )}
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="mt-4">
-                  <div className="flex items-center text-sm text-gray-600 mb-2">
-                    <UserIcon className="h-4 w-4 mr-1" />
-                    <span>Owner: {pet.owner?.profile?.firstName} {pet.owner?.profile?.lastName}</span>
-                  </div>
+            {/* Alternative: Even More Compact List View for Mobile */}
+            <div className="block sm:hidden space-y-3">
+              {filteredPets.map((pet) => (
+                <div key={pet._id} className="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm">
+                            {getSpeciesIcon(pet.profile.species)}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-semibold text-gray-900 truncate">
+                              {pet.profile.name}
+                            </h3>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                              {calculateAge(pet.profile.dateOfBirth)}y
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-3 mt-1">
+                            <span className="text-sm text-gray-500 truncate">
+                              {pet.profile.breed}
+                            </span>
+                            <span className="text-sm text-gray-400">•</span>
+                            <span className="text-sm text-gray-500">
+                              {pet.profile.weight} lbs
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Weight:</span>
-                      <div className="font-medium text-gray-900">{pet.profile.weight} lbs</div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Color:</span>
-                      <div className="font-medium text-gray-900">{pet.profile.color}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {pet.profile.notes && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {pet.profile.notes}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Upcoming:</span>
-                      <div className="font-medium text-gray-900">{pet.upcomingAppointments || 0} visits</div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Last Visit:</span>
-                      <div className="font-medium text-gray-900">
-                        {pet.lastVisit ? new Date(pet.lastVisit).toLocaleDateString() : 'No visits'}
+                      <div className="flex items-center space-x-2 ml-3">
+                        <button
+                          onClick={() => handleViewProfile(pet)}
+                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        >
+                          View
+                        </button>
+                        <div className="flex space-x-1">
+                          <button
+                            onClick={() => handleEditPet(pet)}
+                            className="p-1 text-gray-400 hover:text-yellow-600"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                          {user?.role !== 'pet_owner' && (
+                            <button
+                              onClick={() => handleDeletePet(pet._id)}
+                              className="p-1 text-gray-400 hover:text-red-600"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-4 flex space-x-2">
-                  <button className="flex-1 btn-secondary text-sm py-2">
-                    View Profile
-                  </button>
-                  <button className="btn-primary text-sm py-2 px-4">
-                    Book Visit
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -380,6 +462,28 @@ const PetList = () => {
           editPet={selectedPet}
         />
       )}
+
+
+
+
+      {showDeleteDialog && (
+        <ConfirmDialog
+          title="Delete Pet"
+          message="Are you sure you want to delete this pet? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
+      )}
+
+      {/* Pet Details Modal */}
+      <PetDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        pet={selectedPet}
+      />
     </div>
   );
 };

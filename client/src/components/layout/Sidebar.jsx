@@ -16,6 +16,7 @@ import {
   CurrencyDollarIcon,
   Squares2X2Icon,
   WrenchScrewdriverIcon,
+  CurrencyEuroIcon,
 } from '@heroicons/react/24/outline';
 
 const Sidebar = () => {
@@ -107,6 +108,15 @@ const Sidebar = () => {
       roles: ['super_admin'],
       isSpecial: true,
       description: 'Manage business categories'
+    },
+     {
+      name: 'Business Payments',
+      href: '/dashboard/admin/business-payments',
+      icon: CurrencyEuroIcon,
+      current: location.pathname === 'admin/business-payments',
+      roles: ['super_admin'],
+      isSpecial: true,
+      description: 'Manage business payments'
     },
   ];
 

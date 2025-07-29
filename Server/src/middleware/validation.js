@@ -315,15 +315,15 @@ const validateServiceUpdate = [
     .isInt({ min: 0, max: 300 })
     .withMessage('Maximum age must be between 0 and 300 months'),
 
-  body('staff.*.user')
-    .if(body('staff').exists())
-    .isMongoId()
-    .withMessage('Staff user ID must be a valid MongoDB ObjectId'),
+  // body('staff.*.user')
+  //   .if(body('staff').exists())
+  //   .isMongoId()
+  //   .withMessage('Staff user ID must be a valid MongoDB ObjectId'),
 
-  body('staff.*.skillLevel')
-    .if(body('staff').exists())
-    .isIn(['beginner', 'intermediate', 'expert'])
-    .withMessage('Skill level must be beginner, intermediate, or expert'),
+  // body('staff.*.skillLevel')
+  //   .if(body('staff').exists())
+  //   .isIn(['beginner', 'intermediate', 'expert'])
+  //   .withMessage('Skill level must be beginner, intermediate, or expert'),
 
   // Middleware to check validation results
   (req, res, next) => {

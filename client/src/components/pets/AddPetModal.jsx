@@ -263,18 +263,20 @@ const AddPetModal = ({ isOpen, onClose, onSuccess, clients, editPet = null }) =>
   };
 
   // Handle next step
-  const handleNext = () => {
-    const currentStepData = steps[currentStep];
-    
-    if (validateStep(currentStepData.id)) {
-      setCompletedSteps(prev => new Set([...prev, currentStepData.id]));
-      if (currentStep < steps.length - 1) {
-        setCurrentStep(currentStep + 1);
-      }
-    } else {
-      toast.error('Please fill in all required fields before proceeding');
+const handleNext = (e) => {
+  e.preventDefault();
+  const currentStepData = steps[currentStep];
+
+  if (validateStep(currentStepData.id)) {
+    setCompletedSteps(prev => new Set([...prev, currentStepData.id]));
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
     }
-  };
+  } else {
+    toast.error('Please fill in all required fields before proceeding');
+  }
+};
+
 
   // Handle previous step
   const handlePrevious = () => {

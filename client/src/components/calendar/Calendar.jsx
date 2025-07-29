@@ -3,6 +3,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import format from 'date-fns/format';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
+import startOfWeek from 'date-fns/startOfWeek';
+import endOfWeek from 'date-fns/endOfWeek';
 import eachDayOfInterval from 'date-fns/eachDayOfInterval';
 import isSameMonth from 'date-fns/isSameMonth';
 import isToday from 'date-fns/isToday';
@@ -19,7 +21,6 @@ import {
   ClockIcon,
   UserIcon,
   PlusIcon,
-  Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
@@ -32,7 +33,7 @@ const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState('month'); // month, week, day
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  // const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showMobileDetails, setShowMobileDetails] = useState(false);
 
   // Fetch appointments on component mount
@@ -44,9 +45,12 @@ const Calendar = () => {
     }
   }, [dispatch, user]);
 
+  // Fixed calendar days calculation
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const calendarDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 }); // Start from Sunday
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 }); // End on Saturday
+  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   // Transform Redux appointment data to match calendar format
   const transformAppointmentData = (appointment) => {
@@ -170,7 +174,7 @@ const Calendar = () => {
               Today
             </button>
             <button
-              onClick={() => setShowAppointmentModal(true)}
+              // onClick={() => setShowAppointmentModal(true)}
               className="btn-primary flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5"
             >
               <PlusIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
@@ -190,7 +194,7 @@ const Calendar = () => {
           ))}
         </div>
 
-        {/* Calendar Days */}
+        {/* Calendar Days - Fixed grid layout */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, dayIdx) => {
             const dayAppointments = getAppointmentsForDate(day);
@@ -300,7 +304,7 @@ const Calendar = () => {
               </p>
               <div className="mt-4">
                 <button
-                  onClick={() => setShowAppointmentModal(true)}
+                  // onClick={() => setShowAppointmentModal(true)}
                   className="btn-primary flex items-center mx-auto text-sm"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
@@ -418,7 +422,7 @@ const Calendar = () => {
       {/* Mobile Appointments Panel */}
       <div>
         {showMobileDetails && (
-          <div class="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-md">
+          <div className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-md">
             <div className="h-fit flex flex-col">
               {renderAppointmentsList()}
             </div>

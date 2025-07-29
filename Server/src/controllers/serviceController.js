@@ -342,22 +342,61 @@ class ServiceController {
         });
       }
 
-      // Validate staff assignments if being updated
-      if (updateData.staff && updateData.staff.length > 0) {
-        const staffIds = updateData.staff.map(s => s.user);
-        const staffMembers = await User.find({
-          _id: { $in: staffIds },
-          business: service.business,
-          role: { $in: [ROLES.BUSINESS_ADMIN, ROLES.STAFF] }
-        });
+ if (Array.isArray(updateData.staff) && updateData.staff.length) {
+  try {
+    // Extract just the ID strings
+    const staffIds = updateData.staff.map(entry =>
+      typeof entry === 'string' ? entry : (entry.user || entry._id)
+    );
 
-        if (staffMembers.length !== staffIds.length) {
-          return res.status(400).json({
-            success: false,
-            message: 'One or more staff members are invalid or not part of this business'
-          });
-        }
+    // Validate that all IDs are valid MongoDB ObjectIds
+    const validStaffIds = staffIds.filter(id => {
+      try {
+        return mongoose.Types.ObjectId.isValid(id);
+      } catch (error) {
+        return false;
       }
+    });
+
+    if (validStaffIds.length !== staffIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'One or more staff IDs are invalid'
+      });
+    }
+
+    // Validate those IDs exist & belong to this business
+    const staffMembers = await User.find({
+      _id: { $in: validStaffIds.map(id => new mongoose.Types.ObjectId(id)) },
+      business: service.business,
+      role: { $in: [ROLES.BUSINESS_ADMIN, ROLES.STAFF] }
+    });
+    
+    if (staffMembers.length !== validStaffIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'One or more staff members are invalid or not part of this business'
+      });
+    }
+
+    // Now rebuild the embedded-doc array for saving
+    updateData.staff = validStaffIds.map(idStr => {
+      const existing = service.staff.find(s => s.user.toString() === idStr);
+      return {
+        ...(existing ? { _id: existing._id } : {}),
+        user: new mongoose.Types.ObjectId(idStr),
+        assignedAt: existing ? existing.assignedAt : new Date()
+      };
+    });
+
+  } catch (error) {
+    console.error('Staff validation error:', error);
+    return res.status(400).json({
+      success: false,
+      message: 'Error validating staff assignments'
+    });
+  }
+}
 
       // Update service
       Object.assign(service, updateData);

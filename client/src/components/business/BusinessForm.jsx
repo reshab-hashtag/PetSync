@@ -29,7 +29,7 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
     profile: {
       name: '',
-      companyName: '', // New company name field
+      companyName: '',
       description: '',
       email: '',
       phone: '',
@@ -42,6 +42,7 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
         country: 'IND'
       }
     },
+    category: '', // Business category moved here
     services: [],
     schedule: {
       timezone: 'Asia/Kolkata',
@@ -76,29 +77,46 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
     }
   });
 
-  console.log(categories)
+  // console.log(categories)
 
   const [newService, setNewService] = useState({
     name: '',
     description: '',
-    duration: 60,
-    price: { amount: 0, currency: 'INR' },
-    category: 'general'
+    category: 'grooming', // Service category (different from business category)
+    pricing: {
+      basePrice: 0,
+      currency: 'INR',
+      priceType: 'fixed',
+      variations: []
+    },
+    duration: {
+      estimated: 60,
+      buffer: 15
+    },
+    requirements: {
+      vaccinationRequired: false,
+      requiredVaccines: [],
+      ageRestrictions: {
+        minAge: '',
+        maxAge: ''
+      },
+      specialRequirements: []
+    },
+    staff: [],
+    isActive: true
   });
-
 
   // Load categories on component mount
   useEffect(() => {
     dispatch(fetchActiveCategories());
   }, []);
 
-
   useEffect(() => {
     if (isEdit && business) {
       setFormData({
         profile: {
           name: business.profile?.name || '',
-          companyName: business.profile?.companyName || '', // New company name field
+          companyName: business.profile?.companyName || '',
           description: business.profile?.description || '',
           email: business.profile?.email || '',
           phone: business.profile?.phone || '',
@@ -111,6 +129,7 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
             country: business.profile?.address?.country || 'IND'
           }
         },
+        category: business.profile?.category?._id || business.profile?.category || '',
         services: business.services || [],
         schedule: business.schedule || formData.schedule,
         settings: business.settings || formData.settings,
@@ -181,18 +200,61 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
       return;
     }
 
+    if (!newService.pricing.basePrice || newService.pricing.basePrice <= 0) {
+      toast.error('Base price must be greater than 0');
+      return;
+    }
+
+    if (!newService.duration.estimated || newService.duration.estimated < 15) {
+      toast.error('Duration must be at least 15 minutes');
+      return;
+    }
+
+    // Clean up empty vaccine and requirement arrays
+    const cleanedService = {
+      ...newService,
+      requirements: {
+        ...newService.requirements,
+        requiredVaccines: newService.requirements.requiredVaccines.filter(v => v.trim()),
+        specialRequirements: newService.requirements.specialRequirements.filter(r => r.trim())
+      },
+      id: Date.now() // Temporary ID for frontend management
+    };
+
     setFormData(prev => ({
       ...prev,
-      services: [...prev.services, { ...newService, id: Date.now() }]
+      services: [...prev.services, cleanedService]
     }));
 
+    // Reset form
     setNewService({
       name: '',
       description: '',
-      duration: 60,
-      price: { amount: 0, currency: 'INR' },
-      category: 'general'
+      category: 'grooming',
+      pricing: {
+        basePrice: 0,
+        currency: 'INR',
+        priceType: 'fixed',
+        variations: []
+      },
+      duration: {
+        estimated: 60,
+        buffer: 15
+      },
+      requirements: {
+        vaccinationRequired: false,
+        requiredVaccines: [],
+        ageRestrictions: {
+          minAge: '',
+          maxAge: ''
+        },
+        specialRequirements: []
+      },
+      staff: [],
+      isActive: true
     });
+
+    toast.success('Service added successfully');
   };
 
   const removeService = (index) => {
@@ -219,6 +281,9 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
       }
       if (!formData.profile.phone?.trim()) {
         newErrors['profile.phone'] = 'Phone number is required';
+      }
+      if (!formData.category) {
+        newErrors['category'] = 'Business category is required';
       }
       if (!formData.profile.address.city?.trim()) {
         newErrors['profile.address.city'] = 'City is required';
@@ -257,7 +322,10 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
 
     try {
       const businessData = {
-        businessData: formData
+        businessData: {
+          ...formData,
+          category: formData.category // Send category at root level for backend
+        }
       };
 
       if (isEdit) {
@@ -390,6 +458,23 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
+            Company Name *
+          </label>
+          <input
+            type="text"
+            name="profile.companyName"
+            value={formData.profile.companyName}
+            onChange={handleInputChange}
+            className={`input-field ${errors['profile.companyName'] ? 'border-red-300' : ''}`}
+            placeholder="Enter company name"
+          />
+          {errors['profile.companyName'] && (
+            <p className="text-red-500 text-sm mt-1">{errors['profile.companyName']}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Business Email *
           </label>
           <input
@@ -424,6 +509,36 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
+            Business Category *
+          </label>
+          {categoriesLoading ? (
+            <div className="input-field flex items-center justify-center">
+              <LoadingSpinner size="sm" />
+              <span className="ml-2">Loading categories...</span>
+            </div>
+          ) : (
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              className={`input-field ${errors['category'] ? 'border-red-300' : ''}`}
+              required
+            >
+              <option value="">Select a category</option>
+              {categories.map(category => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {errors['category'] && (
+            <p className="text-red-500 text-sm mt-1">{errors['category']}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Website (Optional)
           </label>
           <input
@@ -449,22 +564,6 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
           className="input-field"
           placeholder="Describe your business..."
         />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Company Name *
-        </label>
-        <input
-          type="text"
-          name="profile.companyName"
-          value={formData.profile.companyName}
-          onChange={handleInputChange}
-          className={`input-field ${errors['profile.companyName'] ? 'border-red-300' : ''}`}
-          placeholder="Enter company Name"
-        />
-        {errors['profile.companyName'] && (
-          <p className="text-red-500 text-sm mt-1">{errors['profile.companyName']}</p>
-        )}
       </div>
 
       <div className="border-t pt-6">
@@ -565,10 +664,12 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
       {/* Add New Service */}
       <div className="bg-gray-50 p-4 rounded-lg">
         <h4 className="text-md font-medium text-gray-900 mb-4">Add New Service</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Basic Service Information */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Service Name
+              Service Name *
             </label>
             <input
               type="text"
@@ -581,63 +682,24 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Duration (minutes)
+              Service Category *
             </label>
-            <input
-              type="number"
-              value={newService.duration}
-              onChange={(e) => setNewService(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
+            <select
+              value={newService.category}
+              onChange={(e) => setNewService(prev => ({ ...prev, category: e.target.value }))}
               className="input-field"
-              min="15"
-              max="480"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Price (₹)
-            </label>
-            <input
-              type="number"
-              value={newService.price.amount}
-              onChange={(e) => setNewService(prev => ({
-                ...prev,
-                price: { ...prev.price, amount: parseFloat(e.target.value) || 0 }
-              }))}
-              className="input-field"
-              min="0"
-              step="0.01"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Business Category
-            </label>
-            {categoriesLoading ? (
-              <div className="input-field flex items-center justify-center">
-                <LoadingSpinner size="sm" />
-                <span className="ml-2">Loading categories...</span>
-              </div>
-            ) : (
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                className="input-field"
-                required
-              >
-                <option value="">Select a category</option>
-                {categories.map(category => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            >
+              <option value="grooming">Grooming</option>
+              <option value="veterinary">Veterinary</option>
+              <option value="boarding">Boarding</option>
+              <option value="training">Training</option>
+              <option value="daycare">Daycare</option>
+              <option value="other">Other</option>
+            </select>
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Service Description
           </label>
@@ -648,6 +710,284 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
             className="input-field"
             placeholder="Brief description of the service..."
           />
+        </div>
+
+        {/* Pricing Section */}
+        <div className="border-t pt-4 mb-4">
+          <h5 className="text-sm font-medium text-gray-900 mb-3">Pricing</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Base Price (₹) *
+              </label>
+              <input
+                type="number"
+                value={newService.pricing.basePrice}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  pricing: { ...prev.pricing, basePrice: parseFloat(e.target.value) || 0 }
+                }))}
+                className="input-field"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Price Type
+              </label>
+              <select
+                value={newService.pricing.priceType}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  pricing: { ...prev.pricing, priceType: e.target.value }
+                }))}
+                className="input-field"
+              >
+                <option value="fixed">Fixed Price</option>
+                <option value="variable">Variable Price</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Currency
+              </label>
+              <select
+                value={newService.pricing.currency}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  pricing: { ...prev.pricing, currency: e.target.value }
+                }))}
+                className="input-field"
+              >
+                <option value="INR">INR (₹)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Duration Section */}
+        <div className="border-t pt-4 mb-4">
+          <h5 className="text-sm font-medium text-gray-900 mb-3">Duration</h5>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Estimated Duration (minutes) *
+              </label>
+              <input
+                type="number"
+                value={newService.duration.estimated}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  duration: { ...prev.duration, estimated: parseInt(e.target.value) || 0 }
+                }))}
+                className="input-field"
+                min="15"
+                max="480"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Buffer Time (minutes)
+              </label>
+              <input
+                type="number"
+                value={newService.duration.buffer}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  duration: { ...prev.duration, buffer: parseInt(e.target.value) || 0 }
+                }))}
+                className="input-field"
+                min="0"
+                max="60"
+              />
+              <p className="text-xs text-gray-500 mt-1">Time between appointments</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Requirements Section */}
+        <div className="border-t pt-4 mb-4">
+          <h5 className="text-sm font-medium text-gray-900 mb-3">Requirements</h5>
+          
+          {/* Vaccination Required */}
+          <div className="mb-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={newService.requirements.vaccinationRequired}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  requirements: { ...prev.requirements, vaccinationRequired: e.target.checked }
+                }))}
+                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <span className="ml-2 text-sm text-gray-700">Vaccination Required</span>
+            </label>
+          </div>
+
+          {/* Age Restrictions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Minimum Age (months)
+              </label>
+              <input
+                type="number"
+                value={newService.requirements.ageRestrictions.minAge}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  requirements: {
+                    ...prev.requirements,
+                    ageRestrictions: {
+                      ...prev.requirements.ageRestrictions,
+                      minAge: parseInt(e.target.value) || ''
+                    }
+                  }
+                }))}
+                className="input-field"
+                min="0"
+                max="300"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Maximum Age (months)
+              </label>
+              <input
+                type="number"
+                value={newService.requirements.ageRestrictions.maxAge}
+                onChange={(e) => setNewService(prev => ({
+                  ...prev,
+                  requirements: {
+                    ...prev.requirements,
+                    ageRestrictions: {
+                      ...prev.requirements.ageRestrictions,
+                      maxAge: parseInt(e.target.value) || ''
+                    }
+                  }
+                }))}
+                className="input-field"
+                min="0"
+                max="300"
+              />
+            </div>
+          </div>
+
+          {/* Required Vaccines */}
+          {newService.requirements.vaccinationRequired && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Required Vaccines
+              </label>
+              <div className="space-y-2">
+                {newService.requirements.requiredVaccines.map((vaccine, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={vaccine}
+                      onChange={(e) => {
+                        const updatedVaccines = [...newService.requirements.requiredVaccines];
+                        updatedVaccines[index] = e.target.value;
+                        setNewService(prev => ({
+                          ...prev,
+                          requirements: { ...prev.requirements, requiredVaccines: updatedVaccines }
+                        }));
+                      }}
+                      className="input-field flex-1"
+                      placeholder="e.g., Rabies, DHPP"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedVaccines = newService.requirements.requiredVaccines.filter((_, i) => i !== index);
+                        setNewService(prev => ({
+                          ...prev,
+                          requirements: { ...prev.requirements, requiredVaccines: updatedVaccines }
+                        }));
+                      }}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewService(prev => ({
+                    ...prev,
+                    requirements: {
+                      ...prev.requirements,
+                      requiredVaccines: [...prev.requirements.requiredVaccines, '']
+                    }
+                  }))}
+                  className="text-sm text-indigo-600 hover:text-indigo-500"
+                >
+                  + Add Vaccine
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Special Requirements */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Special Requirements
+            </label>
+            <div className="space-y-2">
+              {newService.requirements.specialRequirements.map((requirement, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={requirement}
+                    onChange={(e) => {
+                      const updatedRequirements = [...newService.requirements.specialRequirements];
+                      updatedRequirements[index] = e.target.value;
+                      setNewService(prev => ({
+                        ...prev,
+                        requirements: { ...prev.requirements, specialRequirements: updatedRequirements }
+                      }));
+                    }}
+                    className="input-field flex-1"
+                    placeholder="e.g., Must be fasted for 12 hours"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updatedRequirements = newService.requirements.specialRequirements.filter((_, i) => i !== index);
+                      setNewService(prev => ({
+                        ...prev,
+                        requirements: { ...prev.requirements, specialRequirements: updatedRequirements }
+                      }));
+                    }}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setNewService(prev => ({
+                  ...prev,
+                  requirements: {
+                    ...prev.requirements,
+                    specialRequirements: [...prev.requirements.specialRequirements, '']
+                  }
+                }))}
+                className="text-sm text-indigo-600 hover:text-indigo-500"
+              >
+                + Add Special Requirement
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -670,28 +1010,45 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
             {formData.services.map((service, index) => (
               <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-4">
-                    <div>
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-1">
                       <h5 className="font-medium text-gray-900">{service.name}</h5>
-                      <p className="text-sm text-gray-500">{service.description}</p>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <span className="inline-block bg-gray-100 px-2 py-1 rounded mr-2">
-                        {service.duration} min
-                      </span>
-                      <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded mr-2">
-                        ₹{service.price.amount}
-                      </span>
-                      <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        {service.category}
-                      </span>
+                      <p className="text-sm text-gray-500 mt-1">{service.description}</p>
+                      
+                      {/* Service Details Tags */}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                          {service.category}
+                        </span>
+                        <span className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs">
+                          {service.duration.estimated} min
+                        </span>
+                        <span className="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                          ₹{service.pricing.basePrice}
+                        </span>
+                        {service.requirements.vaccinationRequired && (
+                          <span className="inline-block bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">
+                            Vaccination Required
+                          </span>
+                        )}
+                        {service.requirements.ageRestrictions.minAge && (
+                          <span className="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                            Min Age: {service.requirements.ageRestrictions.minAge}m
+                          </span>
+                        )}
+                        {service.requirements.ageRestrictions.maxAge && (
+                          <span className="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                            Max Age: {service.requirements.ageRestrictions.maxAge}m
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeService(index)}
-                  className="text-red-600 hover:text-red-900"
+                  className="text-red-600 hover:text-red-900 ml-4"
                 >
                   <XMarkIcon className="w-5 h-5" />
                 </button>
@@ -848,6 +1205,24 @@ const BusinessForm = ({ business = null, onSuccess, onCancel }) => {
               type="checkbox"
               checked={formData.settings.paymentMethods.cash}
               onChange={(e) => handleCheckboxChange('settings.paymentMethods.cash', e.target.checked)}
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <label className="ml-2 text-sm text-gray-900">Cash</label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.settings.paymentMethods.card}
+              onChange={(e) => handleCheckboxChange('settings.paymentMethods.card', e.target.checked)}
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <label className="ml-2 text-sm text-gray-900">Card</label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.settings.paymentMethods.online}
+              onChange={(e) => handleCheckboxChange('settings.paymentMethods.online', e.target.checked)}
               className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
             <label className="ml-2 text-sm text-gray-900">Online</label>

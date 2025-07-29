@@ -5,7 +5,6 @@ import {
   PencilIcon,
   ClockIcon,
   CurrencyDollarIcon,
-  UserGroupIcon,
   ShieldCheckIcon,
   TagIcon,
   CheckCircleIcon,
@@ -208,7 +207,7 @@ const ServiceDetails = ({ service, onClose, onEdit }) => {
             </div>
           )}
 
-          {/* Staff Assignment */}
+          {/* Staff Assignment
           {service.staff && service.staff.length > 0 && (
             <div className="space-y-4">
               <h4 className="text-lg font-medium text-gray-900 flex items-center">
@@ -221,24 +220,24 @@ const ServiceDetails = ({ service, onClose, onEdit }) => {
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                     <div>
                       <span className="text-sm font-medium text-gray-900">
-                        {staffAssignment.user?.profile?.firstName} {staffAssignment.user?.profile?.lastName}
+                        {staffAssignment.user?.fullName}
                       </span>
                       {staffAssignment.user?.profile?.email && (
                         <p className="text-xs text-gray-500">{staffAssignment.user.profile.email}</p>
                       )}
                     </div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    {/* <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                       staffAssignment.skillLevel === 'expert' ? 'bg-green-100 text-green-800' :
                       staffAssignment.skillLevel === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {staffAssignment.skillLevel}
-                    </span>
-                  </div>
+                    </span> */}
+                  {/* </div>
                 ))}
               </div>
             </div>
-          )}
+          )} */} 
 
           {/* Metadata */}
           <div className="pt-4 border-t border-gray-200">

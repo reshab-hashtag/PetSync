@@ -7,18 +7,22 @@ import {
   BellIcon,
   ShieldCheckIcon,
   PaintBrushIcon,
-  CreditCardIcon,
   KeyIcon,
-  BuildingOfficeIcon,
-  DevicePhoneMobileIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  EyeSlashIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { authAPI } from '../../services/api';
+import toast from 'react-hot-toast';
 
 const Settings = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { theme } = useSelector((state) => state.ui);
   const [activeTab, setActiveTab] = useState('profile');
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: user?.profile?.firstName || '',
@@ -32,16 +36,25 @@ const Settings = () => {
       zipCode: user?.profile?.address?.zipCode || '',
     }
   });
+
+
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  const [passwordErrors, setPasswordErrors] = useState({});
   const [notifications, setNotifications] = useState({
     email: true,
     sms: false,
     push: true,
     marketing: false,
-  });
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
   });
 
   const tabs = [
@@ -49,10 +62,6 @@ const Settings = () => {
     { id: 'notifications', name: 'Notifications', icon: BellIcon },
     { id: 'security', name: 'Security', icon: ShieldCheckIcon },
     { id: 'appearance', name: 'Appearance', icon: PaintBrushIcon },
-    { id: 'billing', name: 'Billing', icon: CreditCardIcon },
-    ...(user?.role === 'business_admin' || user?.role === 'super_admin' 
-      ? [{ id: 'business', name: 'Business', icon: BuildingOfficeIcon }] 
-      : []),
   ];
 
   const handleInputChange = (e) => {
@@ -87,8 +96,44 @@ const Settings = () => {
       ...prev,
       [name]: value
     }));
+
+    // Clear error for this field when user starts typing
+    if (passwordErrors[name]) {
+      setPasswordErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  const getPasswordStrength = (password) => {
+    if (!password) return { strength: 0, text: '', color: 'bg-gray-200' };
+
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/\d/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+    const strengthMap = {
+      0: { text: 'Very Weak', color: 'bg-red-500' },
+      1: { text: 'Weak', color: 'bg-red-400' },
+      2: { text: 'Fair', color: 'bg-yellow-400' },
+      3: { text: 'Good', color: 'bg-blue-500' },
+      4: { text: 'Strong', color: 'bg-green-500' },
+      5: { text: 'Very Strong', color: 'bg-green-600' }
+    };
+
+    return { strength, ...strengthMap[strength] };
+  };
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -103,25 +148,59 @@ const Settings = () => {
   };
 
   const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('Passwords do not match');
-      return;
+  e.preventDefault();
+
+  // reset errors and start loading
+  setPasswordErrors({});
+  setPasswordLoading(true);
+
+  // 1) Client‐side validation
+  const errors = {};
+  if (!passwordData.currentPassword) {
+    errors.currentPassword = 'Please enter your current password';
+  }
+  if (!passwordData.newPassword) {
+    errors.newPassword = 'Please enter a new password';
+  }
+  if (passwordData.newPassword !== passwordData.confirmPassword) {
+    errors.confirmPassword = 'New password and confirm password must match';
+  }
+
+  // if any errors, show them and stop
+  if (Object.keys(errors).length > 0) {
+    setPasswordErrors(errors);
+    setPasswordLoading(false);
+    return;
+  }
+
+  // 2) call the API
+  try {
+    await authAPI.changePassword({
+      currentPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword
+    });
+
+    toast.success('Password changed successfully!');
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || 'Failed to change password';
+    if (error.response?.status === 400 && errorMessage.includes('Current password')) {
+      setPasswordErrors({ currentPassword: 'Current password is incorrect' });
+    } else {
+      toast.error(errorMessage);
     }
-    setLoading(true);
-    try {
-      // Update password logic here
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
-    } catch (error) {
-      // Show error message
-    } finally {
-      setLoading(false);
-    }
-  };
+  } finally {
+    setPasswordLoading(false);
+  }
+};
+
+
+
+  const passwordStrength = getPasswordStrength(passwordData.newPassword);
 
   const renderProfileTab = () => (
     <form onSubmit={handleProfileSubmit} className="space-y-6">
@@ -263,14 +342,12 @@ const Settings = () => {
             <button
               type="button"
               onClick={() => handleNotificationChange(key)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                value ? 'bg-primary-600' : 'bg-gray-200'
-              }`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${value ? 'bg-primary-600' : 'bg-gray-200'
+                }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  value ? 'translate-x-6' : 'translate-x-1'
-                }`}
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${value ? 'translate-x-6' : 'translate-x-1'
+                  }`}
               />
             </button>
           </div>
@@ -280,58 +357,173 @@ const Settings = () => {
   );
 
   const renderSecurityTab = () => (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h3 className="text-lg font-medium text-gray-900">Security Settings</h3>
         <p className="text-sm text-gray-500">Manage your account security and password.</p>
       </div>
 
-      <form onSubmit={handlePasswordSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Current Password</label>
-          <input
-            type="password"
-            name="currentPassword"
-            value={passwordData.currentPassword}
-            onChange={handlePasswordChange}
-            className="input-field mt-1"
-            required
-          />
+      {/* Password Change Section */}
+      <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+        <div className="flex items-center mb-4">
+          <KeyIcon className="h-5 w-5 text-gray-600 mr-2" />
+          <h4 className="text-md font-medium text-gray-900">Change Password</h4>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">New Password</label>
-          <input
-            type="password"
-            name="newPassword"
-            value={passwordData.newPassword}
-            onChange={handlePasswordChange}
-            className="input-field mt-1"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
-          <input
-            type="password"
-            name="confirmPassword"
-            value={passwordData.confirmPassword}
-            onChange={handlePasswordChange}
-            className="input-field mt-1"
-            required
-          />
-        </div>
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary flex items-center"
-          >
-            {loading && <LoadingSpinner size="sm" />}
-            <span className={loading ? 'ml-2' : ''}>Update Password</span>
-          </button>
-        </div>
-      </form>
 
+        <form onSubmit={handlePasswordSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Current Password</label>
+            <div className="relative mt-1">
+              <input
+                type={showPasswords.current ? 'text' : 'password'}
+                name="currentPassword"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
+                className={`input-field pr-10 ${passwordErrors.currentPassword ? 'border-red-300 bg-red-50' : ''}`}
+                required
+                disabled={passwordLoading}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => togglePasswordVisibility('current')}
+              >
+                {showPasswords.current ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
+            {passwordErrors.currentPassword && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                {passwordErrors.currentPassword}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">New Password</label>
+            <div className="relative mt-1">
+              <input
+                type={showPasswords.new ? 'text' : 'password'}
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                className={`input-field pr-10 ${passwordErrors.newPassword ? 'border-red-300 bg-red-50' : ''}`}
+                required
+                disabled={passwordLoading}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => togglePasswordVisibility('new')}
+              >
+                {showPasswords.new ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
+
+            {/* Password Strength Indicator */}
+            {passwordData.newPassword && (
+              <div className="mt-2">
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
+                      style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">
+                    {passwordStrength.text}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {passwordErrors.newPassword && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                {passwordErrors.newPassword}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+            <div className="relative mt-1">
+              <input
+                type={showPasswords.confirm ? 'text' : 'password'}
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                className={`input-field pr-10 ${passwordErrors.confirmPassword ? 'border-red-300 bg-red-50' : ''}`}
+                required
+                disabled={passwordLoading}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => togglePasswordVisibility('confirm')}
+              >
+                {showPasswords.confirm ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
+            </div>
+            {passwordErrors.confirmPassword && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <ExclamationCircleIcon className="h-4 w-4 mr-1" />
+                {passwordErrors.confirmPassword}
+              </p>
+            )}
+          </div>
+
+          {/* Password Requirements */}
+          {passwordData.newPassword && (
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <h5 className="text-sm font-medium text-gray-900 mb-2">Password Requirements:</h5>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li className={`flex items-center ${passwordData.newPassword.length >= 8 ? 'text-green-600' : ''}`}>
+                  <CheckCircleIcon className={`h-3 w-3 mr-2 ${passwordData.newPassword.length >= 8 ? 'text-green-500' : 'text-gray-300'}`} />
+                  At least 8 characters long
+                </li>
+                <li className={`flex items-center ${/[A-Z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}`}>
+                  <CheckCircleIcon className={`h-3 w-3 mr-2 ${/[A-Z]/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} />
+                  One uppercase letter (recommended)
+                </li>
+                <li className={`flex items-center ${/[a-z]/.test(passwordData.newPassword) ? 'text-green-600' : ''}`}>
+                  <CheckCircleIcon className={`h-3 w-3 mr-2 ${/[a-z]/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} />
+                  One lowercase letter (recommended)
+                </li>
+                <li className={`flex items-center ${/\d/.test(passwordData.newPassword) ? 'text-green-600' : ''}`}>
+                  <CheckCircleIcon className={`h-3 w-3 mr-2 ${/\d/.test(passwordData.newPassword) ? 'text-green-500' : 'text-gray-300'}`} />
+                  One number (recommended)
+                </li>
+              </ul>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={passwordLoading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+              className="btn-primary flex items-center"
+            >
+              {passwordLoading && <LoadingSpinner size="sm" />}
+              <span className={passwordLoading ? 'ml-2' : ''}>Update Password</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Two-Factor Authentication Section */}
       <div className="border-t pt-6">
         <h4 className="text-md font-medium text-gray-900 mb-4">Two-Factor Authentication</h4>
         <div className="flex items-center justify-between">
@@ -360,11 +552,10 @@ const Settings = () => {
             <button
               key={themeOption}
               onClick={() => dispatch(setTheme(themeOption))}
-              className={`p-4 border rounded-lg text-left transition-colors ${
-                theme === themeOption
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-4 border rounded-lg text-left transition-colors ${theme === themeOption
+                ? 'border-primary-500 bg-primary-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className="font-medium capitalize">{themeOption}</div>
               <div className="text-sm text-gray-500 mt-1">
@@ -379,97 +570,6 @@ const Settings = () => {
     </div>
   );
 
-  const renderBillingTab = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900">Billing & Subscription</h3>
-        <p className="text-sm text-gray-500">Manage your subscription and billing information.</p>
-      </div>
-
-      <div className="card">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-lg font-medium text-gray-900">Current Plan</h4>
-            <p className="text-sm text-gray-500">Professional Plan - $29/month</p>
-          </div>
-          <button className="btn-secondary">
-            Change Plan
-          </button>
-        </div>
-      </div>
-
-      <div className="card">
-        <h4 className="text-lg font-medium text-gray-900 mb-4">Payment Method</h4>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <CreditCardIcon className="h-8 w-8 text-gray-400 mr-3" />
-            <div>
-              <p className="font-medium">**** **** **** 4242</p>
-              <p className="text-sm text-gray-500">Expires 12/2026</p>
-            </div>
-          </div>
-          <button className="btn-secondary">
-            Update
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderBusinessTab = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900">Business Settings</h3>
-        <p className="text-sm text-gray-500">Manage your business information and preferences.</p>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Business Name</label>
-          <input
-            type="text"
-            className="input-field mt-1"
-            defaultValue="Happy Paws Veterinary Clinic"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Business Type</label>
-          <select className="input-field mt-1">
-            <option>Veterinary Clinic</option>
-            <option>Pet Grooming</option>
-            <option>Pet Boarding</option>
-            <option>Pet Training</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Business Hours</label>
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <div>
-              <label className="block text-xs text-gray-500">Monday - Friday</label>
-              <div className="flex space-x-2">
-                <input type="time" className="input-field" defaultValue="09:00" />
-                <input type="time" className="input-field" defaultValue="17:00" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500">Saturday - Sunday</label>
-              <div className="flex space-x-2">
-                <input type="time" className="input-field" defaultValue="10:00" />
-                <input type="time" className="input-field" defaultValue="16:00" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button className="btn-primary">
-          Save Business Settings
-        </button>
-      </div>
-    </div>
-  );
-
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'profile':
@@ -480,10 +580,6 @@ const Settings = () => {
         return renderSecurityTab();
       case 'appearance':
         return renderAppearanceTab();
-      case 'billing':
-        return renderBillingTab();
-      case 'business':
-        return renderBusinessTab();
       default:
         return renderProfileTab();
     }
@@ -504,11 +600,10 @@ const Settings = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab.id
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
               >
                 <tab.icon className="mr-3 h-5 w-5" />
                 {tab.name}

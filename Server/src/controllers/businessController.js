@@ -7,7 +7,7 @@ const Appointment = require('../models/Appointment');
 
 class BusinessController {
   // Create new business (Business Admin only)
-// Server/src/controllers/businessController.js (Fixed createBusiness method)
+
 async createBusiness(req, res, next) {
   try {
     const {
@@ -16,11 +16,14 @@ async createBusiness(req, res, next) {
 
     const {
       profile,
-      services = [],   
+      services = [],   // Array of service objects to create
       schedule,
       settings = {},
-      subscription = {}
+      subscription = {},
+      category
     } = businessData;
+
+    console.log('Received services data:', services);
 
     const userId = req.user.userId;
     const userRole = req.user.role;
@@ -51,7 +54,7 @@ async createBusiness(req, res, next) {
     }
 
     // Validate category if provided
-    if (!profile?.category) {
+    if (!category) {
       return res.status(400).json({
         success: false,
         message: 'Business category is required'
@@ -60,7 +63,7 @@ async createBusiness(req, res, next) {
 
     // Verify category exists
     const BusinessCategory = require('../models/BusinessCategory');
-    const categoryExists = await BusinessCategory.findById(profile.category);
+    const categoryExists = await BusinessCategory.findById(category);
     if (!categoryExists) {
       return res.status(400).json({
         success: false,
@@ -68,7 +71,7 @@ async createBusiness(req, res, next) {
       });
     }
 
-    // Build business payload
+    // First create the business without services
     const businessPayload = {
       profile: {
         name: profile.name,
@@ -78,7 +81,7 @@ async createBusiness(req, res, next) {
         website: profile.website || '',
         email: profile.email.toLowerCase(),
         phone: profile.phone,
-        category: profile.category, // Add the category ID to the business payload
+        category: category,
         address: {
           street: profile.address.street,
           city: profile.address.city,
@@ -87,17 +90,7 @@ async createBusiness(req, res, next) {
           country: profile.address.country || 'IND'
         }
       },
-      services: services.map(service => ({
-        name: service.name,
-        description: service.description || '',
-        duration: service.duration || 60,
-        price: {
-          amount: service.price?.amount || 0,
-          currency: service.price?.currency || 'INR'
-        },
-        category: service.category || 'general',
-        isActive: service.isActive !== false
-      })),
+      services: [], // Will be populated with service IDs
       schedule: {
         timezone: schedule?.timezone || 'Asia/Kolkata',
         workingHours: schedule?.workingHours || {
@@ -147,6 +140,81 @@ async createBusiness(req, res, next) {
     const business = new Business(businessPayload);
     await business.save();
 
+    console.log('Business created with ID:', business._id);
+
+    // Now create services and collect their IDs
+    const Service = require('../models/Service'); // Using your existing Service model
+    const createdServiceIds = [];
+
+    if (services && services.length > 0) {
+      console.log(`Creating ${services.length} services for business ${business._id}...`);
+
+      for (const serviceData of services) {
+        try {
+          // Validate required service fields
+          if (!serviceData.name) {
+            console.log('Skipping service without name:', serviceData);
+            continue;
+          }
+
+          // Use your existing Service schema structure
+          const servicePayload = {
+            business: business._id, // Reference to the business
+            name: serviceData.name,
+            description: serviceData.description || '',
+            category: serviceData.category || 'general',
+            
+            // Pricing object structure
+            pricing: {
+              basePrice: serviceData.pricing?.basePrice || serviceData.price?.amount || 0,
+              currency: serviceData.pricing?.currency || serviceData.price?.currency || 'USD',
+              priceType: serviceData.pricing?.priceType || 'fixed',
+              variations: serviceData.pricing?.variations || []
+            },
+            
+            // Duration object structure
+            duration: {
+              estimated: serviceData.duration?.estimated || serviceData.duration || 60,
+              buffer: serviceData.duration?.buffer || 15
+            },
+            
+            // Requirements object structure
+            requirements: {
+              vaccinationRequired: serviceData.requirements?.vaccinationRequired || false,
+              requiredVaccines: serviceData.requirements?.requiredVaccines || [],
+              ageRestrictions: {
+                minAge: serviceData.requirements?.ageRestrictions?.minAge || 1,
+                maxAge: serviceData.requirements?.ageRestrictions?.maxAge || 15
+              },
+              specialRequirements: serviceData.requirements?.specialRequirements || []
+            },
+            
+            // Staff array (if provided)
+            staff: serviceData.staff || [],
+            
+            isActive: serviceData.isActive !== false
+          };
+
+          const service = new Service(servicePayload);
+          const savedService = await service.save();
+          
+          createdServiceIds.push(savedService._id);
+          console.log(`Created service: ${savedService.name} with ID: ${savedService._id}`);
+          
+        } catch (serviceError) {
+          console.error(`Error creating service ${serviceData.name}:`, serviceError);
+          // Continue with other services, but log the error
+        }
+      }
+
+      // Update business with service IDs
+      if (createdServiceIds.length > 0) {
+        business.services = createdServiceIds;
+        await business.save();
+        console.log(`Updated business with ${createdServiceIds.length} service IDs`);
+      }
+    }
+
     // Update user with business reference
     user.business.push(business._id);
     await user.save();
@@ -162,12 +230,19 @@ async createBusiness(req, res, next) {
         userAgent: req.get('User-Agent'),
         businessName: business.profile.name,
         companyName: business.profile.companyName,
-        categoryId: business.profile.category
+        categoryId: business.profile.category,
+        servicesCreated: createdServiceIds.length
       }
     });
 
-    // Populate category information in response
-    await business.populate('profile.category', 'name slug color icon description');
+    // Populate business with category and services for response
+    await business.populate([
+      { path: 'profile.category', select: 'name slug color icon description' },
+      { 
+        path: 'services', 
+        select: 'name description category pricing duration requirements staff isActive'
+      }
+    ]);
 
     // Prepare response
     const responseData = {
@@ -177,9 +252,10 @@ async createBusiness(req, res, next) {
         companyName: business.profile.companyName,
         email: business.profile.email,
         phone: business.profile.phone,
-        category: business.profile.category, // Include populated category
+        category: business.profile.category,
         address: business.profile.address,
-        services: business.services,
+        services: business.services, // Populated service objects
+        serviceCount: createdServiceIds.length,
         settings: business.settings,
         subscription: business.subscription,
         isActive: business.isActive,
@@ -189,7 +265,7 @@ async createBusiness(req, res, next) {
 
     res.status(201).json({
       success: true,
-      message: 'Business created successfully',
+      message: `Business created successfully${createdServiceIds.length > 0 ? ` with ${createdServiceIds.length} services` : ''}`,
       data: responseData
     });
 

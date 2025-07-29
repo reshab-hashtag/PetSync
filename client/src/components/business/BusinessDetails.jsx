@@ -1,6 +1,5 @@
 // client/src/components/business/BusinessDetails.jsx
-import React, { useState, useEffect } from 'react';
-// import { useDispatch } from 'react-redux';
+import React, { useState } from 'react';
 import {
   BuildingOfficeIcon,
   EnvelopeIcon,
@@ -12,12 +11,10 @@ import {
   CurrencyDollarIcon,
   ChartBarIcon,
   ClockIcon,
-  // CreditCardIcon,
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-// import { fetchBusinessDetails } from '../../store/slices/businessSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const BusinessDetails = ({ business, onClose }) => {
@@ -25,25 +22,6 @@ const BusinessDetails = ({ business, onClose }) => {
   const [detailedBusiness, setDetailedBusiness] = useState(business);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-
-  // useEffect(() => {
-  //   const loadBusinessDetails = async () => {
-  //     setLoading(true);
-  //     try {
-  //       const result = await dispatch(fetchBusinessDetails(business._id)).unwrap();
-  //       setDetailedBusiness(result.data.business);
-  //       console.log('Business details loaded:', result.data.business);
-  //     } catch (error) {
-  //       console.error('Failed to load business details:', error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   if (business._id) {
-  //     loadBusinessDetails();
-  //   }
-  // }, [business._id, dispatch]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -293,8 +271,8 @@ const BusinessDetails = ({ business, onClose }) => {
               <p className="text-sm text-gray-500">Manage your business staff and their roles</p>
             </div>
             <div className="divide-y divide-gray-200">
-              {detailedBusiness.staff?.map((staffMember) => (
-                <div key={staffMember._id} className="px-6 py-4 flex items-center justify-between">
+              {detailedBusiness.staff?.map((staffMember,index) => (
+                <div key={index} className="px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="h-10 w-10 bg-gray-300 rounded-full flex items-center justify-center">
                       <UserGroupIcon className="h-6 w-6 text-gray-600" />

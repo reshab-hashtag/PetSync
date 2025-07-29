@@ -14,7 +14,6 @@ import {
   ChevronRightIcon,
   BuildingOfficeIcon,
   UsersIcon,
-  UserGroupIcon,
   Cog6ToothIcon,
   EllipsisVerticalIcon
 } from '@heroicons/react/24/outline';
@@ -22,7 +21,6 @@ import {
   fetchStaffMembersWithBusinesses,
   deleteStaffMember,
   toggleStaffStatus,
-  setViewMode,
   toggleStaffExpansion as toggleStaffExpansionAction
 } from '../../store/slices/staffSlice';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -31,11 +29,11 @@ import StaffForm from './StaffForm';
 import StaffDetails from './StaffDetails';
 import BusinessAssignmentModal from './BusinessAssignmentModal';
 import toast from 'react-hot-toast';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const StaffList = () => {
   const dispatch = useDispatch();
   const { staffMembers, loading, pagination, expandedStaff } = useSelector(state => state.staff);
-  const { user } = useSelector(state => state.auth);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -136,8 +134,8 @@ const StaffList = () => {
   const getStatusBadge = (isActive) => {
     return (
       <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive
-          ? 'bg-green-100 text-green-800'
-          : 'bg-red-100 text-red-800'
+        ? 'bg-green-100 text-green-800'
+        : 'bg-red-100 text-red-800'
         }`}>
         {isActive ? (
           <>
@@ -581,8 +579,8 @@ const StaffList = () => {
                         key={page}
                         onClick={() => handlePageChange(page)}
                         className={`relative inline-flex items-center px-3 sm:px-4 py-2 border text-sm font-medium transition-colors ${page === pagination.current
-                            ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                           }`}
                       >
                         {page}
@@ -669,46 +667,29 @@ const StaffList = () => {
         />
       </Modal>
 
-      <Modal
-        isOpen={modals.delete}
-        onClose={() => closeModal('delete')}
-        title="Delete Staff Member"
-      >
-        <div className="sm:flex sm:items-start">
-          <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-            <TrashIcon className="h-6 w-6 text-red-600" />
-          </div>
-          <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Delete Staff Member
-            </h3>
-            <div className="mt-2">
-              <p className="text-sm text-gray-500">
-                Are you sure you want to delete{' '}
-                <strong>
-                  {selectedStaff?.profile.firstName} {selectedStaff?.profile.lastName}
-                </strong>? This action cannot be undone and will remove them from all assigned businesses.
-              </p>
-            </div>
-          </div>
+
+
+
+      {/* replace your <Modal>…</Modal> block with: */}
+      {modals.delete && (
+        <div>
+          <ConfirmDialog
+            title="Delete Staff Member"
+            message={`Are you sure you want to delete "${selectedStaff?.profile.firstName} ${selectedStaff?.profile.lastName}"? This action cannot be undone and will remove them from all assigned businesses.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            type="danger"
+            onConfirm={() => {
+              handleDelete(selectedStaff._id);
+              closeModal('delete');
+            }}
+            onCancel={() => {
+              closeModal('delete');
+            }}
+          />
         </div>
-        <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-          <button
-            type="button"
-            className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-            onClick={handleDelete}
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
-            onClick={() => closeModal('delete')}
-          >
-            Cancel
-          </button>
-        </div>
-      </Modal>
+      )}
+
     </div>
   );
 };

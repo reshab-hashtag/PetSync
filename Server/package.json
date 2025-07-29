@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:auth": "jest tests/controllers/authController.test.js",
+    "test:integration": "jest tests/integration/",
+    "test:unit": "jest tests/controllers/ tests/services/ tests/middleware/",
+    "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
     "start": "nodemon server.js",
     "dev": "nodemon server.js"
   },
@@ -42,9 +48,10 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "jest": "^30.0.2",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.0.5",
     "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.10",
-    "supertest": "^7.1.1"
+    "supertest": "^7.1.4"
   }
 }

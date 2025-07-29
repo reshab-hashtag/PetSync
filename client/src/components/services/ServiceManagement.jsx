@@ -27,14 +27,15 @@ import { fetchBusinesses } from '../../store/slices/businessSlice';
 
 const ServiceManagement = () => {
   const dispatch = useDispatch();
-  const { services, pagination, filters, loading, categories } = useSelector((state) => state.services);
-  const { user } = useSelector((state) => state.auth);
+  const { services, pagination, filters, loading } = useSelector((state) => state.services);
 
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
+
+  // console.log(services)
 
   useEffect(() => {
     dispatch(fetchServices(filters));

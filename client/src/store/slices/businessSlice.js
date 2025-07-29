@@ -39,7 +39,7 @@ export const createBusiness = createAsyncThunk(
   'business/createBusiness',
   async (businessData, { rejectWithValue }) => {
     try {
-      const response = await api.post('/auth/register', businessData);
+      const response = await api.post('/business/register', businessData);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to create business');

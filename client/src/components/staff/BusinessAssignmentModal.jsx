@@ -4,10 +4,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
     BuildingOfficeIcon,
     CheckIcon,
-    XMarkIcon,
     UsersIcon,
-    PlusIcon,
-    MinusIcon
+    PlusIcon
 } from '@heroicons/react/24/outline';
 import { addStaffToBusiness, fetchBusinesses } from '../../store/slices/businessSlice';
 import toast from 'react-hot-toast';

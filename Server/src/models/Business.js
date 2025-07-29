@@ -26,17 +26,22 @@ const BusinessSchema = new mongoose.Schema({
       country: { type: String, default: 'IND' }
     }
   },
+  // services: [{
+  //   name: { type: String, required: true },
+  //   description: String,
+  //   duration: Number, // in minutes
+  //   price: {
+  //     amount: Number,
+  //     currency: { type: String, default: 'INR' }
+  //   },
+  //   category: String, // Service category, different from business category
+  //   isActive: { type: Boolean, default: true }
+  // }],
+
   services: [{
-    name: { type: String, required: true },
-    description: String,
-    duration: Number, // in minutes
-    price: {
-      amount: Number,
-      currency: { type: String, default: 'INR' }
-    },
-    category: String, // Service category, different from business category
-    isActive: { type: Boolean, default: true }
-  }],
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Service' // Reference to your existing Service model
+}],
   schedule: {
     timezone: { type: String, default: 'GMT+5:30' },
     workingHours: {
@@ -104,5 +109,29 @@ BusinessSchema.index({ 'profile.category': 1 });
 BusinessSchema.pre(['find', 'findOne', 'findOneAndUpdate'], function() {
   this.populate('profile.category', 'name slug color icon description');
 });
+
+
+
+// Also add this method to your Business schema for easy population:
+BusinessSchema.methods.populateServices = function() {
+  return this.populate({
+    path: 'services',
+    select: 'name description duration price category isActive',
+    match: { isActive: true }, // Only get active services
+    options: { sort: { name: 1 } }
+  });
+};
+
+// And this static method for getting businesses with services:
+BusinessSchema.statics.findWithServices = function(query = {}) {
+  return this.find(query)
+    .populate('profile.category', 'name slug color icon')
+    .populate({
+      path: 'services',
+      select: 'name description duration price category isActive',
+      match: { isActive: true },
+      options: { sort: { name: 1 } }
+    });
+};
 
 module.exports = mongoose.model('Business', BusinessSchema);
