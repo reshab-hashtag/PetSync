@@ -7,6 +7,9 @@ const AppointmentCard = ({ appointment }) => {
   const { startChat } = useChat();
   const { user } = useSelector((state) => state.auth);
 
+
+  
+
   const handleStartChat = () => {
     const targetUserId = user.role === 'pet_owner' 
       ? appointment.staff?._id || appointment.assignedTo?._id

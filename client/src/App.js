@@ -82,7 +82,10 @@ function App() {
               />
             </Route>
           </Routes>
-       {user && ["client", "staff"].includes(user.role) && <TempChatComponent />}
+            {user &&
+              ["client", "staff"].includes(user.role) &&
+                <TempChatComponent />
+            }
 
 
           <Toaster

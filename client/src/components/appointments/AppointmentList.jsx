@@ -53,7 +53,7 @@ const AppointmentList = () => {
     page: 1
   });
 
-  const { role } = user;
+  const { role } = user || {};
 
   // Debounce search to avoid too many API calls
   useEffect(() => {

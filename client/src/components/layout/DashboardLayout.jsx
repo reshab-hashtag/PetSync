@@ -1,16 +1,40 @@
 import React, { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { getCurrentUser } from '../../store/slices/authSlice';
-import { Outlet } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 const DashboardLayout = ({ children }) => {
   const dispatch = useDispatch();
+  const { user, isAuthenticated, isLoading } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    dispatch(getCurrentUser());
-  }, [dispatch]);
+    // Only fetch current user if we have a token but no user
+    const token = localStorage.getItem('token');
+    if (token && !user) {
+      dispatch(getCurrentUser());
+    }
+  }, [dispatch, user]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // useEffect(() => {
+  //   dispatch(getCurrentUser());
+  // }, [dispatch]);
 
   return (
     <div>
@@ -20,7 +44,7 @@ const DashboardLayout = ({ children }) => {
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {children}
-             <Outlet />
+            <Outlet />
           </div>
         </main>
       </div>
