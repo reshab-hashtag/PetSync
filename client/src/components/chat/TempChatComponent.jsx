@@ -22,13 +22,14 @@ const TempChatComponent = () => {
   const [currentChat, setCurrentChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [chatInvitations, setChatInvitations] = useState([]);
-  const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState(null);
+
+  // New state for unread messages
+  const [unreadMessages, setUnreadMessages] = useState({}); // { userId: count }
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
 
   // Helper functions
   const getServiceName = (service) => {
@@ -44,10 +45,16 @@ const TempChatComponent = () => {
     return String(value);
   };
 
+  // Calculate total unread messages
+  useEffect(() => {
+    const total = Object.values(unreadMessages).reduce((sum, count) => sum + count, 0);
+    setTotalUnreadCount(total);
+  }, [unreadMessages]);
+
   // Initialize socket connection
   useEffect(() => {
     if (token && user) {
-      socketRef.current = io(process.env.REACT_APP_SERVER_URL || 'http://51.20.198.23:10000', {
+      socketRef.current = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:5000', {
         auth: { token },
         transports: ['websocket', 'polling'],
       });
@@ -63,19 +70,25 @@ const TempChatComponent = () => {
         setIsConnected(false);
       });
 
-      socketRef.current.on('chat_invitation', (data) => {
-        console.log('📨 Chat invitation received:', data);
-        setChatInvitations((prev) => [...prev, data]);
-        const serviceName = getServiceName(data.appointmentDetails?.service);
-        const appointmentInfo = data.appointmentDetails ? ` for ${serviceName}` : '';
-        toast.success(`${data.from.name} wants to chat with you${appointmentInfo}`);
-      });
+      // socketRef.current.on('chat_invitation', (data) => {
+      //   console.log('📨 Chat invitation received:', data);
+      //   setChatInvitations((prev) => [...prev, data]);
+      //   const serviceName = getServiceName(data.appointmentDetails?.service);
+      //   const appointmentInfo = data.appointmentDetails ? ` for ${serviceName}` : '';
+      //   toast.success(`${data.from.name} wants to chat with you${appointmentInfo}`);
+      // });
 
       socketRef.current.on('chat_started', (data) => {
         console.log('💬 Chat started:', data);
         setCurrentChat(data);
         setMessages(data.messages || []);
         setIsOpen(true);
+
+        // Clear unread messages for this user when chat is opened
+        const otherParticipant = data.participants.find((p) => p.id !== user.id);
+        if (otherParticipant) {
+          markMessagesAsRead(otherParticipant.id);
+        }
       });
 
       socketRef.current.on('chat_accepted', (data) => {
@@ -85,14 +98,29 @@ const TempChatComponent = () => {
       socketRef.current.on('new_temp_message', (messageData) => {
         console.log('📩 New message received:', messageData);
         setMessages((prev) => [...prev, messageData]);
+
+        // If message is not from current user and chat is not currently open with this user
+        if (messageData.from.id !== user.id) {
+          const senderId = messageData.from.id;
+
+          // If the chat is not currently open or not from the current chat participant
+          if (!currentChat || !isOpen ||
+            !currentChat.participants.some(p => p.id === senderId)) {
+            // Increment unread count for this user
+            setUnreadMessages(prev => ({
+              ...prev,
+              [senderId]: (prev[senderId] || 0) + 1
+            }));
+          }
+        }
       });
 
       socketRef.current.on('user_typing', (data) => {
         console.log('⌨️ User typing:', data);
         if (data.typing && data.user.id !== user.id) {
-          //setTypingUser(data.user);
+          setTypingUser(data.user);
         } else {
-          //setTypingUser(null);
+          setTypingUser(null);
         }
       });
 
@@ -131,6 +159,20 @@ const TempChatComponent = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Mark messages as read for a specific user
+  const markMessagesAsRead = (userId) => {
+    setUnreadMessages(prev => {
+      const updated = { ...prev };
+      delete updated[userId];
+      return updated;
+    });
+  };
+
+  // Get unread count for a specific user
+  const getUnreadCount = (userId) => {
+    return unreadMessages[userId] || 0;
+  };
+
   const loadAvailableUsers = async () => {
     try {
       console.log('🔍 Loading available users...');
@@ -157,14 +199,11 @@ const TempChatComponent = () => {
       toast.error('Invalid user selected');
       return;
     }
-    socketRef.current.emit('start_chat', { targetUserId, appointmentId });
-  };
 
-  const acceptChatInvitation = (roomId) => {
-    if (socketRef.current) {
-      socketRef.current.emit('accept_chat', { roomId });
-      setChatInvitations((prev) => prev.filter((inv) => inv.roomId !== roomId));
-    }
+    // Mark messages as read when opening chat
+    markMessagesAsRead(targetUserId);
+
+    socketRef.current.emit('start_chat', { targetUserId, appointmentId });
   };
 
   const sendMessage = () => {
@@ -182,49 +221,13 @@ const TempChatComponent = () => {
       type: 'text',
     });
     setNewMessage('');
-    // stopTyping();
   };
 
-//   const startTyping = useCallback(
-//     debounce(() => {
-//       if (!isTyping && currentChat && socketRef.current) {
-//         setIsTyping(true);
-//         socketRef.current.emit('typing_start', { roomId: currentChat.roomId });
-//       }
-//       if (typingTimeoutRef.current) {
-//         clearTimeout(typingTimeoutRef.current);
-//       }
-//       typingTimeoutRef.current = setTimeout(() => {
-//         stopTyping();
-//       }, 3000);
-//     }, 500),
-//     [isTyping, currentChat]
-//   );
-
-//   const stopTyping = useCallback(() => {
-//     if (isTyping && currentChat && socketRef.current) {
-//       setIsTyping(false);
-//       socketRef.current.emit('typing_stop', { roomId: currentChat.roomId });
-//     }
-//     if (typingTimeoutRef.current) {
-//       clearTimeout(typingTimeoutRef.current);
-//     }
-//   }, [isTyping, currentChat]);
-
-//   const leaveChat = useCallback(() => {
-//     if (currentChat && socketRef.current) {
-//       socketRef.current.emit('leave_chat', { roomId: currentChat.roomId });
-//       setCurrentChat(null);
-//       setMessages([]);
-//       setTypingUser(null);
-//     }
-//   }, [currentChat]);
-
-  const backToUserList =() => {
+  const backToUserList = () => {
     setCurrentChat(null);
     setMessages([]);
     setTypingUser(null);
-  }
+  };
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString([], {
@@ -261,31 +264,30 @@ const TempChatComponent = () => {
   };
 
   const handleKeyPress = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    };
-
-  const onChange =(e) => {
-    //e.preventDefault();
-    setNewMessage(e.target.value);
-    //startTyping();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
-  // Chat toggle button
+  const onChange = (e) => {
+    e.preventDefault();
+    setNewMessage(e.target.value);
+  };
+
+  // Chat toggle button with total unread count
   const ChatToggleButton = () => (
     <button
       onClick={() => setIsOpen(!isOpen)}
-      className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg transition-all duration-200 z-50 ${
-        isConnected ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-      }`}
+      className={`fixed bottom-6 right-6 p-4 rounded-full shadow-lg transition-all duration-200 z-50 ${isConnected ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+        }`}
       disabled={!isConnected}
     >
       <ChatBubbleLeftRightIcon className="h-6 w-6" />
-      {chatInvitations.length > 0 && (
+      {/* Show total unread count including chat invitations */}
+      {(totalUnreadCount > 0) && (
         <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-          {chatInvitations.length}
+          {totalUnreadCount}
         </div>
       )}
     </button>
@@ -319,34 +321,6 @@ const TempChatComponent = () => {
       <div className="flex-1 overflow-auto">
         {!currentChat ? (
           <div className="h-full">
-            {/* Chat invitations */}
-            {chatInvitations.length > 0 && (
-              <div className="p-4 border-b bg-yellow-50">
-                <h4 className="font-medium text-yellow-800 mb-2">Chat Invitations</h4>
-                {chatInvitations.map((invitation, index) => (
-                  <div key={index} className="bg-white rounded p-3 mb-2 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm">{invitation.from.name}</span>
-                      <button
-                        onClick={() => acceptChatInvitation(invitation.roomId)}
-                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
-                      >
-                        Accept
-                      </button>
-                    </div>
-                    {invitation.appointmentDetails && (
-                      <div className="text-xs text-gray-600 flex items-center space-x-2">
-                        <CalendarIcon className="h-3 w-3" />
-                        <span>{getServiceName(invitation.appointmentDetails.service)}</span>
-                        <span>•</span>
-                        <span>{formatDate(invitation.appointmentDetails.date)}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
             <div className="p-4">
               <h4 className="font-medium text-gray-800 mb-3">
                 {user?.role === 'client' ? 'Chat with Staff' : 'Chat with Clients'}
@@ -359,42 +333,52 @@ const TempChatComponent = () => {
                 </div>
               ) : (
                 <div className="space-y-2 max-h-44 overflow-y-auto">
-                  {availableUsers.map((targetUser) => (
-                    <div
-                      key={targetUser.id}
-                      className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => startChat(targetUser.id, targetUser.appointmentId)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-medium">
-                              {targetUser.name ? targetUser.name.split(' ').map((n) => n[0]).join('') : 'U'}
-                            </span>
+                  {availableUsers.map((targetUser) => {
+                    const unreadCount = getUnreadCount(targetUser.id);
+                    return (
+                      <div
+                        key={targetUser.id}
+                        className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer transition-colors relative"
+                        onClick={() => startChat(targetUser.id, targetUser.appointmentId)}
+                      >
+                        {/* Unread message badge */}
+                        {unreadCount > 0 && (
+                          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            {unreadCount > 99 ? '99+' : unreadCount}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{safeRender(targetUser.name, 'Unknown User')}</p>
-                            <p className="text-xs text-gray-500 capitalize">
-                              {safeRender(targetUser.role?.replace('_', ' '), 'user')}
-                            </p>
+                        )}
+
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium">
+                                {targetUser.name ? targetUser.name.split(' ').map((n) => n[0]).join('') : 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{safeRender(targetUser.name, 'Unknown User')}</p>
+                              <p className="text-xs text-gray-500 capitalize">
+                                {safeRender(targetUser.role?.replace('_', ' '), 'user')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-1">
+                            {user?.role !== 'client' && (
+                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(targetUser.appointmentStatus)}`}>
+                                {safeRender(targetUser.appointmentStatus.replace('_', ' '))}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end space-y-1">
-                          {user?.role !== 'client' && (
-                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(targetUser.appointmentStatus)}`}>
-                              {safeRender(targetUser.appointmentStatus.replace('_', ' '))}
-                            </span>
-                          )}
-                        </div>
+                        {targetUser.lastAppointment && (
+                          <div className="text-xs text-gray-500 flex items-center space-x-1">
+                            <ClockIcon className="h-3 w-3" />
+                            <span>Last: {formatDate(targetUser.lastAppointment)}</span>
+                          </div>
+                        )}
                       </div>
-                      {targetUser.lastAppointment && (
-                        <div className="text-xs text-gray-500 flex items-center space-x-1">
-                          <ClockIcon className="h-3 w-3" />
-                          <span>Last: {formatDate(targetUser.lastAppointment)}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -412,8 +396,8 @@ const TempChatComponent = () => {
                     {user?.role === 'client'
                       ? formatDate(currentChat.appointmentDetails.date)
                       : currentChat.appointmentDetails.status.replace('_', ' ') === 'completed'
-                      ? ''
-                      : formatDate(currentChat.appointmentDetails.date)}
+                        ? ''
+                        : formatDate(currentChat.appointmentDetails.date)}
                   </span>
                   <span className={`ml-auto px-2 py-1 text-xs rounded-full ${getStatusColor(currentChat.appointmentDetails.status)}`}>
                     {safeRender(currentChat.appointmentDetails.status.replace('_', ' '))}
@@ -436,9 +420,8 @@ const TempChatComponent = () => {
                     className={`flex ${message.from.id === user.id ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-xs px-3 py-1 rounded-lg ${
-                        message.from.id === user.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'
-                      }`}
+                      className={`max-w-xs px-3 py-1 rounded-lg ${message.from.id === user.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'
+                        }`}
                     >
                       <p className="text-sm w-fit">{safeRender(message.message)}</p>
                       <div className="flex items-center justify-between mt-1">
@@ -486,12 +469,6 @@ const TempChatComponent = () => {
                 >
                   <PaperAirplaneIcon className="h-4 w-4" />
                 </button>
-              </div>
-              <div className="flex justify-between items-center mt-2">
-                {/* <button onClick={leaveChat} className="text-xs text-red-600 hover:text-red-800">
-                  Leave chat
-                </button> */}
-                {/* <span className="text-xs text-gray-500">{isConnected ? 'Connected' : 'Disconnected'}</span> */}
               </div>
             </div>
           </div>

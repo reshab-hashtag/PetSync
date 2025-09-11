@@ -8,6 +8,14 @@ const UserSchema = new mongoose.Schema({
     enum: Object.values(ROLES), 
     required: true 
   },
+  designation: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Designation',
+  // Only required for staff members, not for business admins or super admins
+  required: function() {
+    return this.role === 'STAFF';
+  }
+},
   business: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Business' }],
   profile: {
     firstName: { type: String, required: true, trim: true },
@@ -106,5 +114,42 @@ UserSchema.methods.hasPermission = function(permission) {
   const userPermission = this.permissions.find(p => p.module === module);
   return userPermission && userPermission.actions.includes(action);
 };
+
+
+
+UserSchema.methods.hasPermission = async function(permission) {
+  // Super admin has all permissions
+  if (this.role === ROLES.SUPER_ADMIN) return true;
+  
+  // Business admin has all permissions within their business
+  if (this.role === ROLES.BUSINESS_ADMIN) return true;
+  
+  // For staff, check designation permissions first, then individual permissions
+  if (this.role === ROLES.STAFF) {
+    // If user has a designation, check designation permissions
+    if (this.designation) {
+      // Populate designation if not already populated
+      if (typeof this.designation === 'string' || this.designation instanceof mongoose.Types.ObjectId) {
+        await this.populate('designation');
+      }
+      
+      if (this.designation && this.designation.permissions) {
+        const [module, action] = permission.split(':');
+        const designationPermission = this.designation.permissions.find(p => p.module === module);
+        if (designationPermission && designationPermission.actions.includes(action)) {
+          return true;
+        }
+      }
+    }
+    
+    // Fallback to individual permissions
+    const [module, action] = permission.split(':');
+    const userPermission = this.permissions.find(p => p.module === module);
+    return userPermission && userPermission.actions.includes(action);
+  }
+  
+  return false;
+};
+
 
 module.exports = mongoose.model('User', UserSchema);

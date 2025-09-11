@@ -1,4 +1,3 @@
-// client/src/hooks/useChat.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { io } from 'socket.io-client';
@@ -16,7 +15,12 @@ const useChat = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    if (token && user && !socketRef.current) {
+   if (
+  token &&
+  user &&
+  !socketRef.current &&
+  ['staff', 'client'].includes(user.role)
+    ) {
       const newSocket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:5000', {
         auth: { token },
         transports: ['websocket', 'polling']

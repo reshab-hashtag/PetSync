@@ -1,4 +1,4 @@
-// client/src/components/auth/BusinessAdminRegistrationForm.jsx (Fixed Submission Flow)
+// client/src/components/auth/BusinessAdminRegistrationForm.jsx (Fixed Error Handling)
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -8,13 +8,12 @@ import {
     selectActiveCategoriesLoading,
     selectActiveCategoriesError
 } from '../../store/slices/businessCategorySlice';
-// Import the createBusiness action from your business slice
-import { createBusiness } from '../../store/slices/businessSlice'; // Adjust path as needed
+// Import the correct action - use registerBusinessAdmin instead of registerUser
+import { registerBusinessAdmin } from '../../store/slices/authSlice';
 import {
     BuildingOfficeIcon,
     UserIcon,
     MapPinIcon,
-    CogIcon,
     CheckCircleIcon,
     XCircleIcon,
     Squares2X2Icon
@@ -121,14 +120,17 @@ const BusinessAdminRegistrationForm = () => {
         }
     };
 
-    // Handle category selection
+    // Fixed category selection handler
     const handleCategorySelect = (categoryId) => {
+        console.log('Category selected:', categoryId); // Debug log
+        
         setFormData(prev => ({
             ...prev,
             category: categoryId
         }));
 
-        if (errors.category) {
+        // Clear category error immediately when valid selection is made
+        if (categoryId && categoryId.trim() !== '') {
             setErrors(prev => ({
                 ...prev,
                 category: ''
@@ -153,6 +155,7 @@ const BusinessAdminRegistrationForm = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // Fixed validation for Step 2
     const validateStep2 = () => {
         const newErrors = {};
 
@@ -161,7 +164,14 @@ const BusinessAdminRegistrationForm = () => {
         if (!formData.businessEmail.trim()) newErrors.businessEmail = 'Business email is required';
         else if (!/\S+@\S+\.\S+/.test(formData.businessEmail)) newErrors.businessEmail = 'Business email is invalid';
         if (!formData.businessPhone.trim()) newErrors.businessPhone = 'Business phone is required';
-        if (!formData.category) newErrors.category = 'Please select a business category';
+        
+        // Fixed category validation - more robust check
+        if (!formData.category || formData.category.trim() === '') {
+            newErrors.category = 'Please select a business category';
+        }
+
+        console.log('Validation step 2 - formData.category:', formData.category); // Debug log
+        console.log('Validation errors:', newErrors); // Debug log
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -208,7 +218,7 @@ const BusinessAdminRegistrationForm = () => {
         }
     };
 
-    // Form submission using Redux createBusiness action
+    // Fixed form submission with proper error handling
     const handleSubmit = async () => {
         // Final validation before submission
         if (!validateStep1() || !validateStep2() || !validateStep3()) {
@@ -292,18 +302,34 @@ const BusinessAdminRegistrationForm = () => {
                 }
             };
 
-            await dispatch(createBusiness(registrationPayload)).unwrap();
+            console.log('Submitting registration payload:', registrationPayload);
+
+            // Use the correct action - registerBusinessAdmin instead of registerUser
+            await dispatch(registerBusinessAdmin(registrationPayload)).unwrap();
 
             // Success - redirect to login or dashboard
-            // navigate('/login', {
-            //     state: {
-            //         message: 'Registration successful! Please log in with your credentials.',
-            //         type: 'success'
-            //     }
-            // });
+            navigate('/login', {
+                state: {
+                    message: 'Registration successful! Please log in with your credentials.',
+                    type: 'success'
+                }
+            });
+
         } catch (error) {
             console.error('Registration error:', error);
-            setErrors({ general: error || 'Registration failed. Please try again.' });
+            
+            // Fixed error handling - properly extract error message
+            let errorMessage = 'Registration failed. Please try again.';
+            
+            if (typeof error === 'string') {
+                errorMessage = error;
+            } else if (error?.message) {
+                errorMessage = error.message;
+            } else if (error?.data?.message) {
+                errorMessage = error.data.message;
+            }
+            
+            setErrors({ general: errorMessage });
         } finally {
             setLoading(false);
         }
@@ -313,7 +339,7 @@ const BusinessAdminRegistrationForm = () => {
     const selectedCategory = categories.find(cat => cat._id === formData.category);
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div>
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
                     <BuildingOfficeIcon className="h-12 w-12 text-indigo-600" />
@@ -328,7 +354,7 @@ const BusinessAdminRegistrationForm = () => {
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-4xl">
                 <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-                    {/* Progress Steps - Fixed for responsiveness */}
+                    {/* Progress Steps */}
                     <div className="mb-8">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
                             {steps.map((step, index) => (
@@ -369,13 +395,15 @@ const BusinessAdminRegistrationForm = () => {
                         </div>
                     </div>
 
-                    {/* Error Display */}
+                    {/* Fixed Error Display - properly render error message as string */}
                     {errors.general && (
                         <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
                             <div className="flex">
                                 <XCircleIcon className="h-5 w-5 text-red-400" />
                                 <div className="ml-3">
-                                    <p className="text-sm text-red-800">{errors.general}</p>
+                                    <p className="text-sm text-red-800">
+                                        {typeof errors.general === 'string' ? errors.general : 'Registration failed. Please try again.'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -395,7 +423,7 @@ const BusinessAdminRegistrationForm = () => {
                         </div>
                     )}
 
-                    {/* Form Content - NOT wrapped in form tag to prevent auto-submission */}
+                    {/* Rest of your form steps remain the same */}
                     <div>
                         {/* Step 1: Personal Information */}
                         {currentStep === 1 && (

@@ -162,15 +162,6 @@ const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) =>
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-md hover:bg-gray-100"
-            >
-              <XMarkIcon className="h-6 w-6" />
-            </button>
-
-
-
             {/* Quick actions */}
             <div className="flex items-center space-x-2">
               <button
@@ -181,6 +172,12 @@ const AppointmentDetailsModal = ({ isOpen, onClose, appointment, onRefresh }) =>
                 <span>Quick Chat</span>
               </button>
             </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-md hover:bg-gray-100"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
           </div>
 
 

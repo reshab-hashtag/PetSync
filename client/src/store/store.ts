@@ -9,6 +9,7 @@ import appointmentReducer from './slices/appointmentSlice';
 import serviceReducer from './slices/serviceSlice';
 import petsReducer from './slices/petSlice';
 import uiReducer from './slices/uiSlice';
+import notificationSlice from './slices/notificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -22,6 +23,7 @@ export const store = configureStore({
     client: clientReducer,
     services: serviceReducer,
     ui: uiReducer,
+    notifications: notificationSlice
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -6,6 +6,8 @@ import endOfMonth from 'date-fns/endOfMonth';
 import startOfWeek from 'date-fns/startOfWeek';
 import endOfWeek from 'date-fns/endOfWeek';
 import eachDayOfInterval from 'date-fns/eachDayOfInterval';
+import AppointmentCreateForm from '../appointments/AppointmentCreateForm';
+import LoadingSpinner from '../common/LoadingSpinner';
 import isSameMonth from 'date-fns/isSameMonth';
 import isToday from 'date-fns/isToday';
 import isSameDay from 'date-fns/isSameDay';
@@ -33,17 +35,24 @@ const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState('month'); // month, week, day
-  // const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showMobileDetails, setShowMobileDetails] = useState(false);
 
-  // Fetch appointments on component mount
+  const { role } = user || {};
+
   useEffect(() => {
     if (user) {
       dispatch(fetchAppointments({
-        limit: 100, // Fetch more appointments for calendar view
+        limit: 100,
       }));
     }
   }, [dispatch, user]);
+
+  if (!user) {
+    return (
+      <LoadingSpinner />
+    );
+  }
 
   // Fixed calendar days calculation
   const monthStart = startOfMonth(currentDate);
@@ -138,6 +147,21 @@ const Calendar = () => {
     }
   };
 
+
+  // Handle appointment creation success
+  const handleAppointmentCreateSuccess = () => {
+    setShowAppointmentModal(false);
+    // Refresh appointments data
+    dispatch(fetchAppointments({
+      limit: 100,
+    }));
+  };
+
+  // Check if user can create appointments
+  const canCreateAppointments = () => {
+    return role === 'business_admin' || role === 'staff' || role === 'client';
+  };
+
   const renderCalendarGrid = () => {
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weekDaysMobile = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -174,12 +198,11 @@ const Calendar = () => {
               Today
             </button>
             <button
-              // onClick={() => setShowAppointmentModal(true)}
+              onClick={() => setShowAppointmentModal(true)}
               className="btn-primary flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5"
             >
-              <PlusIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              <PlusIcon className="h-3 w-3 mr-0 sm:h-4 sm:w-4 sm:mr-1" />
               <span className="hidden sm:inline">New</span>
-              <span className="sm:hidden">+</span>
             </button>
           </div>
         </div>
@@ -302,15 +325,17 @@ const Calendar = () => {
               <p className="mt-1 text-xs sm:text-sm text-gray-500">
                 No appointments scheduled for this date.
               </p>
-              <div className="mt-4">
-                <button
-                  // onClick={() => setShowAppointmentModal(true)}
-                  className="btn-primary flex items-center mx-auto text-sm"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  Schedule Appointment
-                </button>
-              </div>
+              {canCreateAppointments() && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setShowAppointmentModal(true)}
+                    className="btn-primary flex items-center mx-auto text-sm"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Schedule Appointment
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3 sm:space-y-4">
@@ -495,6 +520,20 @@ const Calendar = () => {
             </div>
           </div>
         </div>
+      </div>
+
+
+
+
+
+
+      {/* Appointment Create Modal */}
+      <div>
+        <AppointmentCreateForm
+          isOpen={showAppointmentModal}
+          onClose={() => setShowAppointmentModal(false)}
+          onSuccess={handleAppointmentCreateSuccess}
+        />
       </div>
     </div>
   );

@@ -508,7 +508,134 @@ async canManageStaff(req, res, next) {
   }
 
   // Create new staff member
-  async createStaffMember(req, res, next) {
+//   async createStaffMember(req, res, next) {
+//   try {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Validation error',
+//         errors: errors.array()
+//       });
+//     }
+
+//     const {
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       role = ROLES.STAFF,
+//       specializations = [],
+//       permissions = {},
+//       schedule = {},
+//       emergencyContact = {}
+//     } = req.body;
+
+//     // Check if email already exists
+//     const existingUser = await User.findOne({ 'profile.email': email });
+//     if (existingUser) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Email already exists'
+//       });
+//     }
+
+//     // Validate role
+//     if (![ROLES.STAFF, ROLES.BUSINESS_ADMIN].includes(role)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid role specified'
+//       });
+//     }
+
+//     // Generate temporary password
+//     const tempPassword = generateTempPassword();
+
+//     // Create staff member with createdBy field
+//     const staff = new User({
+//       profile: {
+//         firstName,
+//         lastName,
+//         email,
+//         phone,
+//         createdBy: req.user.userId, // ← ADD THIS LINE - Store who created this user
+//         emergencyContact: emergencyContact // Move emergencyContact to profile
+//       },
+//       auth: {
+//         passwordHash: tempPassword,
+//         emailVerified: false
+//       },
+//       role,
+//       business: [req.user.businessId], // Add business to user's business array
+//       specializations,
+//       permissions,
+//       schedule,
+//       isActive: true
+//     });
+
+//     await staff.save();
+
+//     // Add staff to business staff array
+//     const Business = require('../models/Business');
+//     await Business.findByIdAndUpdate(
+//       req.user.businessId,
+//       { $addToSet: { staff: staff._id } }
+//     );
+
+//     // Enhanced audit log with more details
+//     await auditService.log({
+//       user: req.user.userId,
+//       business: req.user.businessId,
+//       action: 'CREATE',
+//       resource: 'staff',
+//       resourceId: staff._id,
+//       details: {
+//         staffEmail: email,
+//         staffName: `${firstName} ${lastName}`,
+//         role: role,
+//         createdBy: req.user.userId
+//       },
+//       metadata: {
+//         ipAddress: req.ip,
+//         userAgent: req.get('User-Agent')
+//       }
+//     });
+
+//     // Remove password from response
+//     const staffResponse = staff.toObject();
+//     delete staffResponse.auth.passwordHash;
+
+//     // Populate the createdBy field in response for verification
+//     await staff.populate('profile.createdBy', 'profile.firstName profile.lastName profile.email role');
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Staff member created successfully',
+//       data: {
+//         staff: {
+//           ...staffResponse,
+//           profile: {
+//             ...staffResponse.profile,
+//             createdBy: staff.profile.createdBy // This will now include the creator's info
+//           }
+//         },
+//         tempPassword, // Send temp password to admin for sharing
+//         createdBy: {
+//           id: req.user.userId,
+//           name: req.user.firstName ? `${req.user.firstName} ${req.user.lastName}` : 'Admin',
+//           email: req.user.email
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error creating staff member:', error);
+//     next(error);
+//   }
+// }
+
+
+
+async createStaffMember(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -525,8 +652,9 @@ async canManageStaff(req, res, next) {
       email,
       phone,
       role = ROLES.STAFF,
+      designationId, // New field for designation selection
       specializations = [],
-      permissions = {},
+      permissions = {}, // These become custom permissions in addition to designation permissions
       schedule = {},
       emergencyContact = {}
     } = req.body;
@@ -548,27 +676,54 @@ async canManageStaff(req, res, next) {
       });
     }
 
+    // For STAFF role, designation is required
+    if (role === ROLES.STAFF && !designationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Designation is required for staff members'
+      });
+    }
+
+    // Validate designation if provided
+    let designation = null;
+    if (designationId) {
+      const Designation = require('../models/Designation');
+      designation = await Designation.findOne({
+        _id: designationId,
+        business: req.user.businessId,
+        isActive: true
+      });
+
+      if (!designation) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid designation selected or designation not found'
+        });
+      }
+    }
+
     // Generate temporary password
     const tempPassword = generateTempPassword();
 
-    // Create staff member with createdBy field
+    // Create staff member with designation
     const staff = new User({
       profile: {
         firstName,
         lastName,
         email,
         phone,
-        createdBy: req.user.userId, // ← ADD THIS LINE - Store who created this user
-        emergencyContact: emergencyContact // Move emergencyContact to profile
+        createdBy: req.user.userId,
+        emergencyContact: emergencyContact
       },
       auth: {
         passwordHash: tempPassword,
         emailVerified: false
       },
       role,
-      business: [req.user.businessId], // Add business to user's business array
+      designation: designationId || undefined, // Only set if provided
+      business: [req.user.businessId],
       specializations,
-      permissions,
+      permissions, // These are custom permissions in addition to designation permissions
       schedule,
       isActive: true
     });
@@ -582,7 +737,7 @@ async canManageStaff(req, res, next) {
       { $addToSet: { staff: staff._id } }
     );
 
-    // Enhanced audit log with more details
+    // Enhanced audit log with designation details
     await auditService.log({
       user: req.user.userId,
       business: req.user.businessId,
@@ -593,6 +748,12 @@ async canManageStaff(req, res, next) {
         staffEmail: email,
         staffName: `${firstName} ${lastName}`,
         role: role,
+        designation: designation ? {
+          id: designation._id,
+          name: designation.name,
+          permissions: designation.permissions
+        } : null,
+        customPermissions: permissions,
         createdBy: req.user.userId
       },
       metadata: {
@@ -605,8 +766,11 @@ async canManageStaff(req, res, next) {
     const staffResponse = staff.toObject();
     delete staffResponse.auth.passwordHash;
 
-    // Populate the createdBy field in response for verification
-    await staff.populate('profile.createdBy', 'profile.firstName profile.lastName profile.email role');
+    // Populate both createdBy and designation fields
+    await staff.populate([
+      { path: 'profile.createdBy', select: 'profile.firstName profile.lastName profile.email role' },
+      { path: 'designation', select: 'name description permissions' }
+    ]);
 
     res.status(201).json({
       success: true,
@@ -616,15 +780,21 @@ async canManageStaff(req, res, next) {
           ...staffResponse,
           profile: {
             ...staffResponse.profile,
-            createdBy: staff.profile.createdBy // This will now include the creator's info
-          }
+            createdBy: staff.profile.createdBy
+          },
+          designation: staff.designation
         },
-        tempPassword, // Send temp password to admin for sharing
+        tempPassword,
         createdBy: {
           id: req.user.userId,
           name: req.user.firstName ? `${req.user.firstName} ${req.user.lastName}` : 'Admin',
           email: req.user.email
-        }
+        },
+        designationInfo: designation ? {
+          name: designation.name,
+          description: designation.description,
+          permissions: designation.permissions
+        } : null
       }
     });
   } catch (error) {

@@ -426,43 +426,94 @@ async createBusiness(req, res, next) {
 
   // Get all businesses (Business Admin only)
  async getAllBusinesses(req, res, next) {
-    try {
-      // 1) Only BUSINESS_ADMIN may call this
-      if (![ROLES.BUSINESS_ADMIN, ROLES.CLIENT, ROLES.STAFF].includes(req.user.role)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied. Only business admins and clients may access this.'
-        });
+  try {
+    // 1) Access control check
+    if (![ROLES.BUSINESS_ADMIN, ROLES.CLIENT, ROLES.STAFF, ROLES.SUPER_ADMIN].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only business admins and clients may access this.'
+      });
+    }
+
+    // 2) Pagination params
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    let query = {};
+    let businesses = [];
+    let total = 0;
+
+    // 3) Handle different user roles
+    if (req.user.role === ROLES.SUPER_ADMIN) {
+      // Super admin: Show all business admin accounts instead of businesses
+      const businessAdminQuery = {
+        role: ROLES.BUSINESS_ADMIN
+      };
+
+      // Apply search filters for business admins
+      if (req.query.search) {
+        businessAdminQuery.$or = [
+          { 'profile.firstName': { $regex: req.query.search, $options: 'i' } },
+          { 'profile.lastName': { $regex: req.query.search, $options: 'i' } },
+          { 'profile.email': { $regex: req.query.search, $options: 'i' } }
+        ];
+      }
+      if (req.query.status) {
+        businessAdminQuery.isActive = req.query.status === 'active';
       }
 
-      // 2) Pagination params
-      const page  = parseInt(req.query.page,  10) || 1;
-      const limit = parseInt(req.query.limit, 10) || 10;
-      const skip  = (page - 1) * limit;
+      // Fetch business admins with their businesses populated
+      const [businessAdmins, totalAdmins] = await Promise.all([
+        User.find(businessAdminQuery)
+          .populate({
+            path: 'business',
+            select: 'profile.name profile.email profile.phone isActive subscription createdAt staff',
+            populate: {
+              path: 'staff',
+              select: 'profile.firstName profile.lastName profile.email role isActive'
+            }
+          })
+          .select('-auth.passwordHash')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit),
+        User.countDocuments(businessAdminQuery)
+      ]);
 
-      // 3) Determine which businesses this admin owns
+      // Transform the response to match expected format
+      businesses = businessAdmins.map(admin => ({
+        _id: admin._id,
+        adminInfo: {
+          firstName: admin.profile.firstName,
+          lastName: admin.profile.lastName,
+          email: admin.profile.email,
+          phone: admin.profile.phone,
+          isActive: admin.isActive,
+          createdAt: admin.createdAt
+        },
+        businesses: admin.business || [],
+        totalBusinesses: Array.isArray(admin.business) ? admin.business.length : 0
+      }));
 
+      total = totalAdmins;
 
-        let owned;
+    } else {
+      // For other roles (BUSINESS_ADMIN, CLIENT, STAFF): Show their businesses
+      let owned;
 
-      // if they’re a CLIENT, pull from req.user.userData.business (or default to [])
       if (req.user.role === ROLES.CLIENT) {
         const doc = await User
-        .findById(req.user.userData.profile.createdBy)
-        .select('business')
-        .lean();        
+          .findById(req.user.userData.profile.createdBy)
+          .select('business')
+          .lean();
 
-      // now pull out the array (or default to [] if it's missing)
-      const businessArray = doc.business || [];
-
-    
-       owned = businessArray;
-      } 
-      else {
-         owned = req.user.userData?.business || [];
+        const businessArray = doc.business || [];
+        owned = businessArray;
+      } else {
+        owned = req.user.userData?.business || [];
       }
 
-        
       // owned is guaranteed to be an array
       if (!Array.isArray(owned) || owned.length === 0) {
         return res.status(400).json({
@@ -470,18 +521,19 @@ async createBusiness(req, res, next) {
           message: 'You have no businesses assigned.'
         });
       }
+
       // Normalize to array of string IDs
       const ownedIds = owned.map(b =>
         typeof b === 'object' ? b._id.toString() : b.toString()
       );
 
-      // 4) Build query filters, including ownership
-      const query = {
+      // Build query filters, including ownership
+      query = {
         _id: { $in: ownedIds }
       };
       if (req.query.search) {
         query.$or = [
-          { 'profile.name':  { $regex: req.query.search, $options: 'i' } },
+          { 'profile.name': { $regex: req.query.search, $options: 'i' } },
           { 'profile.email': { $regex: req.query.search, $options: 'i' } }
         ];
       }
@@ -492,8 +544,8 @@ async createBusiness(req, res, next) {
         query['subscription.plan'] = req.query.plan;
       }
 
-      // 5) Fetch the paged results in parallel with the count
-      const [ businesses, total ] = await Promise.all([
+      // Fetch the paged results in parallel with the count
+      const [businessResults, totalResults] = await Promise.all([
         Business.find(query)
           .populate('staff', 'profile.firstName profile.lastName profile.email role isActive')
           .sort({ createdAt: -1 })
@@ -502,25 +554,31 @@ async createBusiness(req, res, next) {
         Business.countDocuments(query)
       ]);
 
-      // 6) Return with pagination info
-      return res.json({
-        success: true,
-        data: {
-          businesses,
-          pagination: {
-            page,
-            limit,
-            total,
-            pages: Math.ceil(total / limit)
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('Get all businesses error:', error);
-      next(error);
+      businesses = businessResults;
+      total = totalResults;
     }
+
+    // 4) Return with pagination info
+    return res.json({
+      success: true,
+      data: {
+        businesses,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit)
+        },
+        // Add a flag to indicate the response type
+        responseType: req.user.role === ROLES.SUPER_ADMIN ? 'business_admins' : 'businesses'
+      }
+    });
+
+  } catch (error) {
+    console.error('Get all businesses error:', error);
+    next(error);
   }
+}
 
 
   // Enhanced version of getAllStaffMembers with business details

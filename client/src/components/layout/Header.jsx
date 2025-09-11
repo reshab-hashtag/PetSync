@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
@@ -12,16 +12,51 @@ import {
   CogIcon,
   ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
+import { BellIcon as BellSolidIcon } from '@heroicons/react/24/solid';
 
 const Header = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  
+  // Safe selector with fallback
+  const notificationState = useSelector((state) => state.notifications);
+  const unreadCount = notificationState?.unreadCount || 0;
+
+  // Only fetch unread count if notification slice is available and user exists
+  useEffect(() => {
+    if (user && notificationState) {
+      // Import the action dynamically to avoid errors if slice doesn't exist
+      import('../../store/slices/notificationSlice')
+        .then(({ getUnreadCount }) => {
+          dispatch(getUnreadCount());
+          
+          // Set up periodic refresh of unread count every 30 seconds
+          const interval = setInterval(() => {
+            dispatch(getUnreadCount());
+          }, 30000);
+
+          return () => clearInterval(interval);
+        })
+        .catch((error) => {
+          console.log('Notification slice not available yet:', error.message);
+        });
+    }
+  }, [dispatch, user, notificationState]);
 
   const handleLogout = () => {
     dispatch(logoutUser()).then(() => {
       navigate('/login');
     });
+  };
+
+  // Handle notification click - only if notification system is available
+  const handleNotificationClick = () => {
+    if (notificationState) {
+      navigate('/dashboard/notifications');
+    } else {
+      console.log('Notification system not available yet');
+    }
   };
 
   const userNavigation = [
@@ -63,8 +98,8 @@ const Header = () => {
   };
 
   return (
- <div className="sticky top-0 z-40 bg-white bg-opacity-70 backdrop-blur-sm lg:mx-auto lg:max-w-7xl lg:px-8">
-      <div className="flex h-16 items-center gap-x-4 border-b border-gray-200  px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
+    <div className="sticky top-0 z-40 bg-white bg-opacity-70 backdrop-blur-sm lg:mx-auto lg:max-w-7xl lg:px-8">
+      <div className="flex h-16 items-center gap-x-4 border-b border-gray-200 px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-0 lg:shadow-none">
         <button
           type="button"
           className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
@@ -84,13 +119,28 @@ const Header = () => {
           </div>
 
           <div className="flex items-center gap-x-4 lg:gap-x-6">
-            {/* Notifications */}
-            <button
-              type="button"
-              className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
-            >
-              <BellIcon className="h-6 w-6" />
-            </button>
+            {/* Notifications - only show if notification system is available */}
+            {notificationState && (
+              <button
+                type="button"
+                onClick={handleNotificationClick}
+                className="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 transition-colors group"
+                title="View notifications"
+              >
+                {unreadCount > 0 ? (
+                  <BellSolidIcon className="h-6 w-6 text-blue-600 group-hover:text-blue-700" />
+                ) : (
+                  <BellIcon className="h-6 w-6 group-hover:text-gray-600" />
+                )}
+                
+                {/* Unread count badge */}
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Separator */}
             <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200" />

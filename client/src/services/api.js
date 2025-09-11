@@ -5,9 +5,14 @@ export { serviceAPI } from './serviceAPI';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  baseURL: process.env.REACT_APP_API_URL || 'http://51.20.198.23:10000/api',
   timeout: 10000,
 });
+
+
+
+
+// Live Server URL =  http://51.20.198.23:10000/api
 
 // const SECRET = "sdlkhzlkjfhvlzjkhdlvjkzbx,nb#$@^@$%^!&!$y2s01dfnzadfbnsjhk~!#%!#%Y&!Q%$Y";
 

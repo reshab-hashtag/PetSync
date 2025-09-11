@@ -25,6 +25,27 @@ const Sidebar = () => {
   const { sidebarOpen } = useSelector((state) => state.ui);
   const { user } = useSelector((state) => state.auth);
 
+
+// Helper function to check if current path matches navigation item
+  const isActive = (itemHref) => {
+    const currentPath = location.pathname;
+    
+    // Exact match for root dashboard
+    if (itemHref === '/dashboard' && currentPath === '/dashboard') {
+      return true;
+    }
+    
+    // For other routes, check if current path starts with the item href
+    // but make sure it's not just the dashboard root
+    if (itemHref !== '/dashboard' && currentPath.startsWith(itemHref)) {
+      return true;
+    }
+    
+    return false;
+  };
+
+
+
   const navigation = [
     {
       name: 'Dashboard',
@@ -168,6 +189,43 @@ const Sidebar = () => {
   };
 
   const roleInfo = getUserRoleInfo();
+   // Enhanced sidebar item component with better active state styling
+  const SidebarItem = ({ item, isMobile = false }) => {
+    const active = isActive(item.href);
+    
+    return (
+      <Link
+        to={item.href}
+        className={`group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-all duration-200 ${
+          active
+            ? 'bg-indigo-50 text-indigo-600 border-r-2 border-indigo-600'
+            : 'text-gray-700 hover:text-indigo-600 hover:bg-gray-50'
+        } ${item.isSpecial ? 'relative' : ''}`}
+        onClick={() => isMobile && dispatch(setSidebarOpen(false))}
+        title={item.description || item.name}
+      >
+        <item.icon 
+          className={`h-5 w-5 flex-shrink-0 transition-colors duration-200 ${
+            active 
+              ? 'text-indigo-600' 
+              : 'text-gray-400 group-hover:text-indigo-600'
+          }`} 
+        />
+        <span className="flex-1">{item.name}</span>
+        {item.isSpecial && (
+          <PlusCircleIcon className={`h-4 w-4 transition-colors duration-200 ${
+            active 
+              ? 'text-indigo-500' 
+              : 'text-gray-400 group-hover:text-indigo-500'
+          }`} />
+        )}
+        {active && (
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600 rounded-r-sm" />
+        )}
+      </Link>
+    );
+  };
+
 
   return (
     <>
@@ -205,19 +263,7 @@ const Sidebar = () => {
                       <ul className="-mx-2 space-y-1">
                         {filteredNavigation.map((item) => (
                           <li key={item.name}>
-                            <Link
-                              to={item.href}
-                              className={`sidebar-item ${item.current ? 'sidebar-item-active' : 'sidebar-item-inactive'
-                                } ${item.isSpecial ? 'relative' : ''}`}
-                              onClick={() => dispatch(setSidebarOpen(false))}
-                              title={item.description || item.name}
-                            >
-                              <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                              {item.name}
-                              {item.isSpecial && (
-                                <PlusCircleIcon className="ml-auto h-4 w-4 text-primary-500" />
-                              )}
-                            </Link>
+                            <SidebarItem item={item} />
                           </li>
                         ))}
                       </ul>
@@ -275,18 +321,7 @@ const Sidebar = () => {
                 <ul className="-mx-2 space-y-1">
                   {filteredNavigation.map((item) => (
                     <li key={item.name}>
-                      <Link
-                        to={item.href}
-                        className={`sidebar-item ${item.current ? 'sidebar-item-active' : 'sidebar-item-inactive'
-                          } ${item.isSpecial ? 'relative' : ''}`}
-                        title={item.description || item.name}
-                      >
-                        <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                        {item.name}
-                        {item.isSpecial && (
-                          <PlusCircleIcon className="ml-auto h-4 w-4 text-primary-500" />
-                        )}
-                      </Link>
+                       <SidebarItem item={item} />
                     </li>
                   ))}
                 </ul>

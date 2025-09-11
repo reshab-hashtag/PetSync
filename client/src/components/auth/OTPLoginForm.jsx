@@ -212,6 +212,7 @@ const OTPLoginForm = () => {
                     key={index}
                     id={`otp-${index}`}
                     type="text"
+                    autoFocus
                     maxLength="1"
                     className="w-12 h-12 text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-lg font-semibold transition-colors"
                     value={digit}
